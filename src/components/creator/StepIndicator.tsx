@@ -7,12 +7,14 @@ interface StepIndicatorProps {
     onStepClick: (step: Step) => void;
     hasWorkshopPlan: boolean;
     hasPoster: boolean;
+    hasContentKit: boolean;
 }
 
 const STEPS: { id: Step; label: string; labelEn: string; icon: string }[] = [
     { id: "topic", label: "الفكرة", labelEn: "Topic", icon: "💡" },
     { id: "workshop", label: "الخطة", labelEn: "Plan", icon: "📋" },
     { id: "poster", label: "الملصق", labelEn: "Poster", icon: "🎨" },
+    { id: "content-kit", label: "المحتوى", labelEn: "Content", icon: "📦" },
 ];
 
 export function StepIndicator({
@@ -20,6 +22,7 @@ export function StepIndicator({
     onStepClick,
     hasWorkshopPlan,
     hasPoster,
+    hasContentKit,
 }: StepIndicatorProps) {
     const currentIndex = STEPS.findIndex((s) => s.id === currentStep);
 
@@ -27,6 +30,7 @@ export function StepIndicator({
         if (step === "topic") return true;
         if (step === "workshop") return true; // Can always go to workshop
         if (step === "poster") return hasWorkshopPlan; // Need plan for poster
+        if (step === "content-kit") return hasPoster; // Need poster for content kit
         return false;
     };
 
@@ -34,6 +38,7 @@ export function StepIndicator({
         if (step === "topic") return !!hasWorkshopPlan || currentIndex > 0;
         if (step === "workshop") return hasWorkshopPlan;
         if (step === "poster") return hasPoster;
+        if (step === "content-kit") return hasContentKit;
         return false;
     };
 
@@ -56,10 +61,10 @@ export function StepIndicator({
                         >
                             <div
                                 className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl transition-all duration-300 ${isCurrent
-                                        ? "bg-accent text-white shadow-lg shadow-accent/30 scale-110"
-                                        : isComplete
-                                            ? "bg-accent/20 text-accent"
-                                            : "bg-background-tertiary text-foreground-secondary"
+                                    ? "bg-accent text-white shadow-lg shadow-accent/30 scale-110"
+                                    : isComplete
+                                        ? "bg-accent/20 text-accent"
+                                        : "bg-background-tertiary text-foreground-secondary"
                                     }`}
                             >
                                 {isComplete && !isCurrent ? "✓" : step.icon}

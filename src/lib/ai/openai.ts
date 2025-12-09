@@ -70,40 +70,42 @@ export async function generateWorkshopPlan(input: WorkshopInput): Promise<Worksh
     const ageInfo = AGE_DESCRIPTORS[input.ageRange];
     const durationNum = parseInt(input.duration);
 
-    const systemPrompt = `You are an expert workshop facilitator for children's educational programs in Tunisia. Create detailed workshop plans in Arabic with English translations.
-
-REQUIREMENTS:
-- All primary content must be in Arabic (العربية)
-- Include practical, easy-to-follow activities
-- Consider age-appropriate engagement: ${ageInfo.characteristics}
-- Focus on building confidence and leadership skills
-- Use simple, available materials
-
-Return ONLY valid JSON matching this exact structure (no markdown, no code blocks):
-{
-  "title": { "ar": "ورشة: [الموضوع]", "en": "Workshop: [Topic]" },
-  "generalInfo": {
-    "duration": "[X] دقيقة",
-    "ageGroup": "${ageInfo.ar}",
-    "participants": "10-15 طفل",
-    "level": "مبتدئ"
-  },
-  "objectives": [
-    { "ar": "هدف بالعربية", "en": "Objective in English" }
-  ],
-  "materials": ["مادة 1", "مادة 2"],
-  "timeline": [
+    const systemPrompt = `You are a World-Class Educational Consultant for creative youth programs in Tunisia (like "Leader Kid").
+    
+    Create a HIGHLY DETAILED, PROFESSIONAL Workshop Facilitation Guide in Arabic.
+    
+    CRITICAL REQUIREMENTS:
+    - **Professional Depth**: Do not give generic steps. Give EXACT instructions (e.g., "Ask children to stand in a circle and hold hands..." not just "Icebreaker").
+    - **Cultural Relevance**: Use Tunisian cultural references where appropriate.
+    - **Language**: Modern, inspiring Arabic (العربية المعاصرة) with English translations for key terms.
+    - **Engagement**: Activities must be active, kinetic, and collaborative.
+    - **Structure**: Include a "Hook" to start, "Deep Work" in the middle, and "Reflection" at the end.
+    
+    Return ONLY valid JSON matching this exact structure (no markdown, no code blocks):
     {
-      "timeRange": "0-X دقيقة",
-      "title": "عنوان النشاط",
-      "titleEn": "Activity Title",
-      "description": "وصف النشاط",
-      "instructions": ["خطوة 1", "خطوة 2"],
-      "facilitatorTips": "نصيحة للميسر"
-    }
-  ],
-  "facilitatorNotes": ["ملاحظة 1", "ملاحظة 2"]
-}`;
+      "title": { "ar": "ورشة: [الموضوع]", "en": "Workshop: [Topic]" },
+      "generalInfo": {
+        "duration": "[X] دقيقة",
+        "ageGroup": "${ageInfo.ar}",
+        "participants": "10-15 طفل",
+        "level": "مبتدئ"
+      },
+      "objectives": [
+        { "ar": "هدف بالعربية", "en": "Objective in English" }
+      ],
+      "materials": ["مادة 1", "مادة 2"],
+      "timeline": [
+        {
+          "timeRange": "0-X دقيقة",
+          "title": "عنوان النشاط",
+          "titleEn": "Activity Title",
+          "description": "وصف النشاط",
+          "instructions": ["خطوة 1", "خطوة 2"],
+          "facilitatorTips": "نصيحة للميسر"
+        }
+      ],
+      "facilitatorNotes": ["ملاحظة 1", "ملاحظة 2"]
+    }`;
 
     const userPrompt = `Create a ${durationNum}-minute workshop plan for: "${input.topic}"
 
@@ -342,37 +344,63 @@ Each idea should be:
 /**
  * Generate an enhanced visual description for a poster based on workshop details
  */
+/**
+ * Generate an enhanced visual description for a poster based on workshop details
+ */
+/**
+ * Generate an enhanced visual description for a poster based on workshop details
+ */
 export async function enhancePosterPrompt(input: {
     topic: string;
-    title: string;
-    audience?: string;
+    workshopPlan: WorkshopPlanData;
+    date?: string;
+    time?: string;
+    place?: string;
 }): Promise<{ visualPrompt: string; explanation: string }> {
-    const systemPrompt = `You are an expert creative director for children's educational events.
+    const systemPrompt = `You are an expert creative director for children's educational events in Tunisia.
     
-    Your task is to take a workshop topic and create a RICH, DETAILED VISUAL DESCRIPTION in English that can be used as an image generation prompt.
+    Your task is to analyze a FULL WORKSHOP PLAN and create a RICH, VISUAL SCENE for a poster.
     
-    The visual prompt should:
-    - Describe a specific scene, not just abstract concepts
-    - Include lighting, colors, mood, and art style
-    - Be suitable for "Nano Banana" (Imagen) or similar high-end models
-    - Avoid text descriptions (no "text saying...")
-    - Be magical and inspiring
+    CRITICAL: The user wants an "Ad-Ready" poster.
+    1. VISUALS: Visualize the specific activities (e.g. Robot building -> Show a robot).
+       - SETTING: A generic but modern "Cultural Center" in Tunisia. Bright, Mediterranean light, vibrant colors.
+       - CHARACTERS: Diverse Tunisian children (North African features).
+    2. TEXT: The user wants specific ARABIC TEXT included in the design.
+       - Include instructions to place the Date, Time, and Location clearly.
+       - IF the Date/Time provided is "TBD", do NOT write "Date: TBD" in the image. Instead, leave space for it or write "Date: [Date]".
+       - IF Date/Time IS provided, MUST use the exact values.
     
-    Also provide a brief 1-sentence explanation in Arabic about why you chose this visual theme.
+    The visual prompt should be in English (for the image generator), but explicitly mention the Arabic text content to be shown.
     
     Return ONLY JSON:
     {
-      "visualPrompt": "A detailed English description...",
-      "explanation": "شرح مبسط للفكرة الفنية بالعربية"
+      "visualPrompt": "A detailed scene description... including text instructions...",
+      "explanation": "..."
     }`;
 
-    const userPrompt = `Create a visual prompt for a workshop.
+    const hasSpecificDate = input.date && input.date !== "TBD";
+    const hasSpecificTime = input.time && input.time !== "TBD";
+
+    const userPrompt = `Analyze this plan and create a poster visualization:
     
     Topic: ${input.topic}
-    Title: ${input.title}
-    Audience: ${input.audience || "Children 6-12"}
+    Title: ${input.workshopPlan.title.ar}
     
-    Make it look like a premium poster design.`;
+    Logistic Details (MUST BE INCLUDED IN IMAGE TEXT if available):
+    - Date: ${input.date || "(To Be Verified)"}
+    - Time: ${input.time || "(To Be Verified)"}
+    - Location: ${input.place || "Dar Takafa Ben Arous"}
+    
+    Key Activities:
+    ${input.workshopPlan.timeline.map(a => `- ${a.titleEn}: ${a.description}`).join("\n")}
+    
+    Materials involved:
+    ${input.workshopPlan.materials.join(", ")}
+    
+    Create a specific, unique visual scene. Ensure the prompt explicitly asks for the Arabic title "${input.workshopPlan.title.ar}".
+    ${hasSpecificDate ? `Ask to include the date: ${input.date}` : "Do NOT ask for specific date text yet."}
+    ${input.place ? `Ask to include location: ${input.place}` : ""}
+    Style: High-end 3D Pixar Style, set in a bright Tunisian cultural club.`;
 
     const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -397,8 +425,73 @@ export async function enhancePosterPrompt(input: {
         }
         // Fallback
         return {
-            visualPrompt: `A professional, creative poster design for a workshop about ${input.topic}, featuring high-quality abstract 3D elements, vibrant colors, and soft lighting.`,
-            explanation: "تصميم احترافي يعكس موضوع الورشة"
+            visualPrompt: `A professional poster for ${input.topic} featuring the title "${input.workshopPlan.title.ar}" prominently in Arabic typography, with a ${input.workshopPlan.generalInfo.ageGroup} year old child engaging in creative activities.`,
+            explanation: "تصميم يتضمن النص العربي"
         };
+    }
+}
+
+/**
+ * Generate 6 daily tips/advice content based on the workshop topic
+ */
+export interface DailyTip {
+    day: number;
+    title: string;
+    content: string; // The advice text
+    imagePrompt: string; // English prompt for image generation
+}
+
+export async function generateDailyTips(topic: string, workshopTitle: string): Promise<DailyTip[]> {
+    const systemPrompt = `You are a social media content strategist for the "Dar Takafa Ben Arous" cultural center in Tunisia.
+    
+    The user has just hosted a workshop on: "${topic}".
+    Your task is to generate a CONTENT CALENDAR for the next 6 days to keep the audience engaged.
+    
+    Requirements:
+    - 6 DISTINCT posts (Day 1 to 6).
+    - Content: Valuable advice, tips, or "Did you know?" facts related to the topic. NOT ADS.
+    - Tone: Helpful, educational, friendly (Arabic).
+    - Image Prompt Strategy:
+      - SETTING: Realistic Tunisian cultural center (bright, Mediterranean, tile patterns).
+      - CHARACTERS: Tunisian children and facilitators.
+      - TEXT IN IMAGE: Explicitly INSTRUCT the image generator to include the Arabic Title of the tip inside the design (e.g. on a card, board, or overlay).
+    
+    Return ONLY a JSON array:
+    [
+      {
+        "day": 1,
+        "title": "Arabic Title (Short)",
+        "content": "Arabic Advice (2-3 sentences)",
+        "imagePrompt": "Create a photorealistic image of... [Tunisian Context]... Include the text '[Arabic Title]' clearly..."
+      },
+      ...
+    ]`;
+
+    const userPrompt = `Generate 6 daily engagement tips following the workshop: "${workshopTitle}" (${topic}).
+    Focus on value for parents and children.`;
+
+    const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+        ],
+        temperature: 0.8,
+    });
+
+    const content = completion.choices[0]?.message?.content;
+    if (!content) {
+        throw new Error("No response from OpenAI");
+    }
+
+    try {
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
+        return JSON.parse(content);
+    } catch (e) {
+        console.error("Failed to parse daily tips JSON", e);
+        throw new Error("Failed to generate tips");
     }
 }

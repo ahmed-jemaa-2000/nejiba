@@ -5,9 +5,12 @@ import { StepIndicator } from "@/components/creator/StepIndicator";
 import { TopicStep } from "@/components/creator/TopicStep";
 import { WorkshopStep } from "@/components/creator/WorkshopStep";
 import { PosterStep } from "@/components/creator/PosterStep";
+import { ContentKitStep } from "@/components/creator/ContentKitStep";
 import type { WorkshopPlanData, WorkshopActivity } from "@/app/workshop/page";
 
-export type Step = "topic" | "workshop" | "poster";
+import type { DailyTip } from "@/lib/ai/openai";
+
+export type Step = "topic" | "workshop" | "poster" | "content-kit";
 
 export interface CreatorState {
     // Step 1: Topic
@@ -26,6 +29,9 @@ export interface CreatorState {
     posterTime: string;
     posterPlace: string;
     generatedPosterUrl: string | null;
+
+    // Step 4: Content Kit (Daily Tips)
+    dailyTips: Array<DailyTip & { imageUrl?: string }> | null;
 }
 
 const INITIAL_STATE: CreatorState = {
@@ -40,6 +46,7 @@ const INITIAL_STATE: CreatorState = {
     posterTime: "",
     posterPlace: "دار الثقافة بن عروس",
     generatedPosterUrl: null,
+    dailyTips: null,
 };
 
 export default function CreatePage() {
@@ -125,6 +132,7 @@ export default function CreatePage() {
                         onStepClick={goToStep}
                         hasWorkshopPlan={!!state.workshopPlan}
                         hasPoster={!!state.generatedPosterUrl}
+                        hasContentKit={!!state.dailyTips}
                     />
                 </div>
             </header>
@@ -159,6 +167,18 @@ export default function CreatePage() {
                         updateState={updateState}
                         onPosterGenerated={handlePosterGenerated}
                         onBack={() => goToStep("workshop")}
+                        onNext={() => goToStep("content-kit")}
+                        onReset={handleReset}
+                        isLoading={isLoading}
+                        setIsLoading={setIsLoading}
+                    />
+                )}
+
+                {currentStep === "content-kit" && (
+                    <ContentKitStep
+                        state={state}
+                        updateState={updateState}
+                        onBack={() => goToStep("poster")}
                         onReset={handleReset}
                         isLoading={isLoading}
                         setIsLoading={setIsLoading}

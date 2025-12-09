@@ -10,6 +10,7 @@ interface PosterStepProps {
     updateState: (updates: Partial<CreatorState>) => void;
     onPosterGenerated: (url: string) => void;
     onBack: () => void;
+    onNext: () => void;
     onReset: () => void;
     isLoading: boolean;
     setIsLoading: (loading: boolean) => void;
@@ -20,6 +21,7 @@ export function PosterStep({
     updateState,
     onPosterGenerated,
     onBack,
+    onNext,
     onReset,
     isLoading,
     setIsLoading,
@@ -50,8 +52,10 @@ export function PosterStep({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     topic: state.topic,
-                    title: state.workshopPlan?.title.en || state.topic,
-                    audience: state.workshopPlan?.generalInfo.ageGroup
+                    workshopPlan: state.workshopPlan,
+                    date: state.posterDate,
+                    time: state.posterTime,
+                    place: state.posterPlace
                 }),
             });
 
@@ -63,7 +67,7 @@ export function PosterStep({
             }
         } catch (err) {
             console.error("Smart enhancement failed:", err);
-            // Fallback is already the topic, so no big deal
+            setError("تعذر تحليل الخطة توليد الوصف. يرجى المحاولة مجدداً.");
         } finally {
             setIsEnhancing(false);
         }
@@ -87,7 +91,8 @@ export function PosterStep({
 
         const img = new Image();
         img.crossOrigin = "anonymous";
-        img.src = state.generatedPosterUrl;
+        // Use proxy to avoid CORS issues with Cloudflare R2
+        img.src = `/api/proxy-image?url=${encodeURIComponent(state.generatedPosterUrl)}`;
 
         img.onload = () => {
             // Set canvas dimensions
@@ -218,6 +223,8 @@ export function PosterStep({
                     place: state.posterPlace,
                     audience: "children",
                     description: state.posterDescription || state.topic,
+                    posterDate: state.posterDate,
+                    posterTime: state.posterTime
                 }),
             });
 
@@ -303,11 +310,13 @@ export function PosterStep({
                             تحميل الملصق النهائي
                         </Button>
                         <Button
-                            variant="secondary"
-                            onClick={() => updateState({ generatedPosterUrl: null })}
+                            variant="primary"
+                            onClick={onNext}
                             fullWidth
+                            className="bg-accent hover:bg-accent-hover text-white"
+                            icon={<span>📦</span>}
                         >
-                            🔄 إنشاء تصميم آخر
+                            إنشاء حقيبة المحتوى (6 أيام)
                         </Button>
                     </div>
                 </Card>
@@ -362,18 +371,31 @@ export function PosterStep({
                 </FieldGroup>
 
                 <FieldGroup label="وصف الموضوع (للذكاء الاصطناعي)" required>
-                    <div className="relative">
-                        <Input
-                            value={state.posterDescription}
-                            onChange={(e) => updateState({ posterDescription: e.target.value })}
-                            placeholder="وصف موضوع الورشة لتوليد الصورة..."
-                            disabled={isEnhancing}
-                        />
-                        {isEnhancing && (
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 bg-background-secondary/80 px-2 py-1 rounded text-xs text-accent animate-pulse">
-                                <span>✨ جاري توليد وصف إبداعي...</span>
-                            </div>
-                        )}
+                    <div className="space-y-2">
+                        <div className="relative">
+                            <Input
+                                value={state.posterDescription}
+                                onChange={(e) => updateState({ posterDescription: e.target.value })}
+                                placeholder="وصف موضوع الورشة لتوليد الصورة..."
+                                disabled={isEnhancing}
+                                className={isEnhancing ? "pr-10" : ""}
+                            />
+                            {isEnhancing && (
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 bg-background-secondary/80 px-2 py-1 rounded text-xs text-accent animate-pulse">
+                                    <span>✨ جاري تحليل الخطة...</span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex justify-end">
+                            <button
+                                onClick={enhanceDescription}
+                                disabled={isEnhancing}
+                                className="text-xs text-accent hover:text-accent-hover flex items-center gap-1 transition-colors"
+                            >
+                                <span>🔄</span>
+                                إعادة توليد الوصف الذكي
+                            </button>
+                        </div>
                     </div>
                 </FieldGroup>
             </div>

@@ -43,10 +43,11 @@ export function WorkshopStep({
     const [error, setError] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
 
-    // Auto-generate on first load if topic is set
+    // Auto-generation removed to allow manual configuration first
     useEffect(() => {
-        if (state.topic && !state.workshopPlan && !isGenerating) {
-            generatePlan();
+        // Only reset generating state if needed, but do not auto-trigger
+        if (!state.workshopPlan) {
+            // Ready for user input
         }
     }, [state.topic]);
 

@@ -35,9 +35,19 @@ export async function POST(request: NextRequest) {
         }
 
         // Build the optimized prompt
+        let description = body.description;
+
+        // Safety: Replace TBD/Placeholders with actual values if provided
+        if (body.date && body.date !== "TBD") {
+            description = description.replace(/Date:\s*(TBD|\(To Be Verified\)|\[Date\])/gi, `Date: ${body.date}`);
+        }
+        if (body.time && body.time !== "TBD") {
+            description = description.replace(/Time:\s*(TBD|\(To Be Verified\)|\[Time\])/gi, `Time: ${body.time}`);
+        }
+
         const prompt = buildPosterPrompt({
             title: body.title,
-            topic: body.description,
+            topic: description,
             audience: body.audience,
             format: body.format,
         });
@@ -48,7 +58,7 @@ export async function POST(request: NextRequest) {
         // Generate the image
         const result = await generateImage({
             prompt,
-            model: "imagen-pro",
+            model: "imagen-4-fast",
             aspect_ratio: getAspectRatio(body.format),
             style: "Illustration", // Good for event posters
         });

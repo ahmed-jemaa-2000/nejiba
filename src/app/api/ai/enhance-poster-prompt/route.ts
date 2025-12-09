@@ -3,19 +3,21 @@ import { enhancePosterPrompt } from "@/lib/ai/openai";
 
 export async function POST(req: Request) {
     try {
-        const { topic, title, audience } = await req.json();
+        const { topic, workshopPlan, date, time, place } = await req.json();
 
-        if (!topic) {
+        if (!topic || !workshopPlan) {
             return NextResponse.json(
-                { error: "الموضوع مطلوب (Topic is required)" },
+                { error: "الموضوع والخطة مطلوبان (Topic and Plan are required)" },
                 { status: 400 }
             );
         }
 
         const enhanced = await enhancePosterPrompt({
             topic,
-            title,
-            audience,
+            workshopPlan,
+            date,
+            time,
+            place
         });
 
         return NextResponse.json(enhanced);

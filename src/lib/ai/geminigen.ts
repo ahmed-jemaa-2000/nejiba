@@ -73,11 +73,48 @@ export async function generateImage(options: GeminiGenRequest): Promise<GeminiGe
         throw new Error(`GeminiGen API error: ${response.status} - ${errorText}`);
     }
 
-    const result: GeminiGenResponse = await response.json();
+    let result: GeminiGenResponse = await response.json();
 
     // Check for failed status
     if (result.status === 3) {
         throw new Error(`Image generation failed: ${result.error_message || "Unknown error"}`);
+    }
+
+    // POLL if processing (status 1)
+    if (result.status === 1) {
+        console.log("Image processing... polling for result (UUID: " + result.uuid + ")");
+        let attempts = 0;
+        const maxAttempts = 30; // 60 seconds max
+
+        while (result.status === 1 && attempts < maxAttempts) {
+            await new Promise(r => setTimeout(r, 2000));
+            attempts++;
+
+            const historyUrl = `https://api.geminigen.ai/uapi/v1/history/${result.uuid}`;
+            const historyResponse = await fetch(historyUrl, {
+                method: "GET",
+                headers: { "x-api-key": apiKey }
+            });
+
+            if (historyResponse.ok) {
+                const historyData = await historyResponse.json();
+                // Normalize history data to GeminiGenResponse
+                result = {
+                    ...result,
+                    status: historyData.status,
+                    generate_result: historyData.generate_result || (historyData.generated_image?.[0]?.image_url),
+                    error_message: historyData.error_message
+                };
+            }
+        }
+
+        if (result.status === 1) {
+            throw new Error("Image generation timed out");
+        }
+
+        if (result.status === 3) {
+            throw new Error(`Image generation failed during polling: ${result.error_message || "Unknown error"}`);
+        }
     }
 
     return result;
@@ -102,12 +139,24 @@ export function buildPosterPrompt(input: {
     };
 
     // Check if the topic is actually a detailed visual description (Smart Context)
-    const isDetailedPrompt = input.topic && input.topic.length > 50;
+    // Arabic text is denser, so > 20 chars is likely a sentence/description, not just a title
+    const isDetailedPrompt = input.topic && input.topic.length > 20;
+
+    // Check if the user provided a fully structured prompt (Advanced usage)
+    const isStructuredPrompt = input.topic && (
+        input.topic.includes("Design style:") ||
+        input.topic.includes("Layout:") ||
+        input.topic.includes("Format:")
+    );
 
     let prompt = "";
 
-    if (isDetailedPrompt) {
-        // Use the smart context as the core driver
+    if (isStructuredPrompt) {
+        // PASS THROUGH MODE: User knows exactly what they want.
+        // We trust the structured prompt completely.
+        prompt = input.topic!;
+    } else if (isDetailedPrompt) {
+        // Use the smart context as the core driver, but add some safe defaults
         prompt = `Create a high-quality, professional poster. 
         
 Visual Description: ${input.topic}
@@ -115,10 +164,9 @@ Visual Description: ${input.topic}
 Technical Requirements:
 - Aspect Ratio: ${input.format === "instagram" ? "9:16 (Vertical)" : "16:9 (Horizontal)"}
 - Style: 3D Illustration / Digital Art (Pixar/Disney style or High-end Editorial)
-- NO Text in the image (text will be overlaid later)
 - High contrast, vibrant but professional colors
 - Soft, cinematic lighting
-- Leave some negative space in the center/bottom for text overlay`;
+- Composition: Balanced for a poster`;
     } else {
         // Fallback to generic template for short/empty topics
         const audienceDesc = audienceDescriptions[input.audience || "children"] || "children";
@@ -133,9 +181,7 @@ Design requirements:
 - Dark, elegant background with deep indigo/purple tones
 - Modern, clean layout
 - Decorative elements related to education and creativity
-- Space for details options
 - Professional and premium look
-- NO text in the image
 - Style: Professional event poster, ${input.format === "instagram" ? "vertical portrait" : "horizontal landscape"}`;
     }
 
