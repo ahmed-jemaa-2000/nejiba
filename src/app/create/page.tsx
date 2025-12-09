@@ -19,10 +19,14 @@ export interface CreatorState {
     // Step 2: Workshop
     duration: "30" | "45" | "60";
     ageRange: "6-8" | "8-10" | "10-12" | "mixed";
+    selectedMaterials: string[];
     workshopPlan: WorkshopPlanData | null;
 
     // Step 3: Poster
     posterFormat: "facebook" | "instagram";
+    posterStyleId: string;
+    posterColorMood: string;
+    posterVisualElement: string;
     posterTitle: string;
     posterDescription: string;
     posterDate: string;
@@ -38,8 +42,12 @@ const INITIAL_STATE: CreatorState = {
     topic: "",
     duration: "60",
     ageRange: "8-10",
+    selectedMaterials: [],
     workshopPlan: null,
     posterFormat: "facebook",
+    posterStyleId: "bright-playful",
+    posterColorMood: "auto",
+    posterVisualElement: "auto",
     posterTitle: "",
     posterDescription: "",
     posterDate: "",

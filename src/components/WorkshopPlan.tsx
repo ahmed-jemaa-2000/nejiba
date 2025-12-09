@@ -152,29 +152,6 @@ export function WorkshopPlan({
                 </ul>
             </Card>
 
-            {/* Create Poster CTA */}
-            <Card variant="bordered" padding="md" className="no-print bg-gradient-to-r from-accent/10 to-transparent">
-                <h3 className="font-bold text-lg text-foreground mb-4 flex items-center gap-2">
-                    <span>🖼️</span>
-                    إنشاء ملصق لهذه الورشة
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Link
-                        href={`/poster?topic=${encodeURIComponent(input.topic)}&format=facebook`}
-                        className="flex items-center justify-center gap-2 p-4 bg-background-secondary hover:bg-background-tertiary border border-border hover:border-accent/50 rounded-xl transition-all duration-200"
-                    >
-                        <span>📘</span>
-                        <span className="font-medium">ملصق فيسبوك</span>
-                    </Link>
-                    <Link
-                        href={`/poster?topic=${encodeURIComponent(input.topic)}&format=instagram`}
-                        className="flex items-center justify-center gap-2 p-4 bg-background-secondary hover:bg-background-tertiary border border-border hover:border-accent/50 rounded-xl transition-all duration-200"
-                    >
-                        <span>📸</span>
-                        <span className="font-medium">ملصق إنستغرام</span>
-                    </Link>
-                </div>
-            </Card>
 
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-3 no-print">

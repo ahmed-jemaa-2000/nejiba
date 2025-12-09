@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Input } from "@/components/ui";
+import { Button, Card, Input, useToast } from "@/components/ui";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import type { CreatorState } from "@/app/create/page";
 import type { DailyTip } from "@/lib/ai/openai";
@@ -23,9 +23,11 @@ export function ContentKitStep({
     isLoading,
     setIsLoading,
 }: ContentKitStepProps) {
+    const { showToast, dismissToast } = useToast();
     const [generatingImages, setGeneratingImages] = useState<Record<number, boolean>>({});
     const [imageErrors, setImageErrors] = useState<Record<number, string>>({});
     const [enhancingPrompts, setEnhancingPrompts] = useState<Record<number, boolean>>({});
+    const [isBatchGenerating, setIsBatchGenerating] = useState(false);
 
     const handlePromptChange = (index: number, newPrompt: string) => {
         if (!state.dailyTips) return;
@@ -81,23 +83,20 @@ export function ContentKitStep({
         setImageErrors(prev => ({ ...prev, [dayIndex]: "" }));
 
         try {
-            // Use the raw prompt feature we added to geminigen
-            // We prepend "Visual Description:" to be safe if user didn't write it exactly, 
-            // but generateDailyTips returns "Detailed visual description..." so we can use it.
-            // We'll use the "Structured Prompt" trick if we want pass-through, but here we want 
-            // the AI to do its best with the description.
+            // Pass the raw imagePrompt directly for realistic parent-child scenes
+            // Using rawPrompt mode bypasses poster prompt builder
+            // The imagePrompt from generateDailyTips describes a Pixar-style scene
+            // with Tunisian parents doing activities with their children
 
             const response = await fetch("/api/generate-image", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    format: state.posterFormat, // Use same format as poster for consistency
+                    format: "instagram", // Square format (1:1) for Instagram feed
                     title: tip.title,
-                    date: `اليوم ${dayIndex + 1}`,
-                    time: "نصيحة يومية",
-                    place: state.posterPlace || "Nejiba Studio",
-                    audience: "general",
-                    description: `Design style: Daily Advice Card.\n\nVisual: ${tip.imagePrompt}`, // Force structured prompt trigger?
+                    // RAW PROMPT MODE - bypasses poster builder for realistic scenes
+                    rawPrompt: true,
+                    description: tip.imagePrompt,
                 }),
             });
 
@@ -106,6 +105,7 @@ export function ContentKitStep({
                 const newTips = [...(state.dailyTips || [])];
                 newTips[dayIndex] = { ...tip, imageUrl: data.imageUrl };
                 updateState({ dailyTips: newTips });
+                showToast(`✅ تم توليد صورة اليوم ${dayIndex + 1}`, "success");
             } else {
                 throw new Error("No image returned");
             }
@@ -113,9 +113,31 @@ export function ContentKitStep({
         } catch (error) {
             console.error(`Failed to generate image for day ${dayIndex}:`, error);
             setImageErrors(prev => ({ ...prev, [dayIndex]: "فشل توليد الصورة" }));
+            showToast(`❌ فشل توليد صورة اليوم ${dayIndex + 1}`, "error");
         } finally {
             setGeneratingImages(prev => ({ ...prev, [dayIndex]: false }));
         }
+    };
+
+    // Batch generate all 6 images
+    const generateAllImages = async () => {
+        if (!state.dailyTips || isBatchGenerating) return;
+
+        setIsBatchGenerating(true);
+        const loadingToast = showToast("⏳ جاري توليد 6 صور... انتظر قليلاً", "loading");
+
+        let successCount = 0;
+        for (let i = 0; i < state.dailyTips.length; i++) {
+            const tip = state.dailyTips[i];
+            if (!tip.imageUrl) {
+                await generateTipImage(i, tip);
+                successCount++;
+            }
+        }
+
+        dismissToast(loadingToast);
+        showToast(`✅ تم توليد ${successCount} صور بنجاح!`, "success");
+        setIsBatchGenerating(false);
     };
 
     const handleDownload = (url: string, day: number) => {
@@ -125,6 +147,12 @@ export function ContentKitStep({
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        showToast("⬇️ جاري التحميل...", "info", 1500);
+    };
+
+    const copyToClipboard = (text: string, label: string) => {
+        navigator.clipboard.writeText(text);
+        showToast(`📋 تم نسخ ${label}`, "success", 2000);
     };
 
     if (!state.dailyTips) {
@@ -152,12 +180,25 @@ export function ContentKitStep({
 
     return (
         <div className="space-y-8 animate-in fade-in">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-foreground">جدول المحتوى الأسبوعي</h2>
-                    <p className="text-foreground-secondary">6 منشورات جاهزة للنشر - يمكنك تعديل وصف الصورة قبل التوليد</p>
+                    <p className="text-foreground-secondary">6 منشورات جاهزة للنشر على إنستغرام</p>
                 </div>
-                <Button variant="secondary" onClick={onReset}>بدء جديد</Button>
+                <div className="flex gap-2">
+                    {/* Batch Generate Button */}
+                    {state.dailyTips.some(tip => !tip.imageUrl) && (
+                        <Button
+                            variant="gradient"
+                            onClick={generateAllImages}
+                            loading={isBatchGenerating}
+                            icon={<span>🎨</span>}
+                        >
+                            {isBatchGenerating ? "جاري التوليد..." : "توليد كل الصور"}
+                        </Button>
+                    )}
+                    <Button variant="secondary" onClick={onReset}>بدء جديد</Button>
+                </div>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
@@ -173,18 +214,63 @@ export function ContentKitStep({
 
                         {/* Content */}
                         <div className="p-4 space-y-4">
+                            {/* Title */}
                             <div>
-                                <h3 className="font-bold text-foreground mb-2">{tip.title}</h3>
+                                <h3 className="font-bold text-lg text-foreground mb-1">{tip.title}</h3>
+                                {(tip as any).titleEn && (
+                                    <p className="text-xs text-foreground-secondary mb-2">{(tip as any).titleEn}</p>
+                                )}
+                            </div>
+
+                            {/* Instagram Caption - Ready to Copy */}
+                            {(tip as any).instagramCaption ? (
+                                <div className="bg-accent/5 rounded-xl p-3 border border-accent/20">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-bold text-accent flex items-center gap-1">
+                                            📱 نص إنستغرام جاهز للنسخ
+                                        </span>
+                                        <button
+                                            onClick={() => copyToClipboard((tip as any).instagramCaption, "نص إنستغرام")}
+                                            className="text-xs bg-accent text-white px-2 py-1 rounded-lg hover:bg-accent-hover transition-colors"
+                                        >
+                                            📋 نسخ
+                                        </button>
+                                    </div>
+                                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap" dir="rtl">
+                                        {(tip as any).instagramCaption}
+                                    </p>
+                                </div>
+                            ) : (
                                 <p className="text-sm text-foreground-secondary leading-relaxed">
                                     {tip.content}
                                 </p>
-                            </div>
+                            )}
+
+                            {/* Instagram Story Text */}
+                            {(tip as any).instagramStoryText && (
+                                <div className="bg-background-tertiary rounded-lg p-3 border border-border">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-medium text-foreground-secondary flex items-center gap-1">
+                                            📖 نص الستوري
+                                        </span>
+                                        <button
+                                            onClick={() => copyToClipboard((tip as any).instagramStoryText, "نص الستوري")}
+                                            className="text-xs text-accent hover:underline"
+                                        >
+                                            نسخ
+                                        </button>
+                                    </div>
+                                    <p className="text-sm text-foreground">{(tip as any).instagramStoryText}</p>
+                                </div>
+                            )}
 
                             {/* Image Section */}
                             <div className="mt-4 pt-4 border-t border-border space-y-3">
                                 {!tip.imageUrl && (
                                     <div className="relative">
-                                        <label className="text-xs text-foreground-secondary mb-1 block">وصف الصورة (Prompt):</label>
+                                        <label className="text-xs text-foreground-secondary mb-1 block flex items-center gap-2">
+                                            🎨 وصف الصورة (AI Image Prompt):
+                                        </label>
                                         <textarea
                                             value={tip.imagePrompt}
                                             onChange={(e) => handlePromptChange(index, e.target.value)}
@@ -237,11 +323,11 @@ export function ContentKitStep({
                                         ) : (
                                             <Button
                                                 size="sm"
-                                                variant="secondary"
+                                                variant="gradient"
                                                 onClick={() => generateTipImage(index, tip)}
                                                 icon={<span>🎨</span>}
                                             >
-                                                توليد الصورة
+                                                توليد صورة إنستغرام
                                             </Button>
                                         )}
                                     </div>

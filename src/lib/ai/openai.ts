@@ -15,6 +15,7 @@ export interface WorkshopInput {
     topic: string;
     duration: "30" | "45" | "60";
     ageRange: "6-8" | "8-10" | "10-12" | "mixed";
+    selectedMaterialNames?: string[]; // User-selected materials
 }
 
 export interface WorkshopActivity {
@@ -107,21 +108,50 @@ export async function generateWorkshopPlan(input: WorkshopInput): Promise<Worksh
       "facilitatorNotes": ["ملاحظة 1", "ملاحظة 2"]
     }`;
 
+    // Build materials context for the prompt
+    const materialsContext = input.selectedMaterialNames && input.selectedMaterialNames.length > 0
+        ? `\n\nAVAILABLE MATERIALS (use these specifically in activities):\n${input.selectedMaterialNames.map(m => `- ${m}`).join('\n')}\n\nIMPORTANT: Design activities specifically around these available materials!`
+        : "";
+
     const userPrompt = `Create a ${durationNum}-minute workshop plan for: "${input.topic}"
 
 Age group: ${ageInfo.ar} (${ageInfo.en})
+Age characteristics: ${ageInfo.characteristics}
 Context: Cultural center "Leader Kid" (الطفل القائد) club in Ben Arous, Tunisia
+${materialsContext}
 
-Include:
-- 4-5 learning objectives
-- 5-7 materials (simple, easily available)
-- 4-5 timeline activities covering the full ${durationNum} minutes:
-  * Icebreaker (first 10-15 min)
-  * Main activities (middle portion)
-  * Wrap-up (last 10 min)
-- 5-6 facilitator notes
+CRITICAL OUTPUT REQUIREMENTS:
 
-Make activities creative, engaging, and fun!`;
+📌 OBJECTIVES (4-5):
+- Specific, measurable learning outcomes
+- Mix of skills: social, emotional, creative, cognitive
+
+📌 MATERIALS (list only what's available above, or suggest additions if needed)
+
+📌 TIMELINE (5-6 activities, VERY DETAILED):
+Each activity MUST include:
+- Exact time range (e.g., "0-8 دقيقة")
+- Arabic title + English translation
+- DETAILED description (3-4 sentences explaining the activity)
+- Step-by-step instructions (6-10 specific steps, not generic)
+- Facilitator tip (specific advice for this activity)
+
+Timeline structure for ${durationNum} minutes:
+1. 🎬 Opening Hook (${Math.round(durationNum * 0.1)} min) - Grab attention, set the mood
+2. 🔥 Warm-up Activity (${Math.round(durationNum * 0.15)} min) - Get energy up, build connection
+3. 🎯 Main Activity 1 (${Math.round(durationNum * 0.25)} min) - Core learning experience
+4. 🏃 Movement Break (${Math.round(durationNum * 0.1)} min) - Re-energize
+5. 🌟 Main Activity 2 (${Math.round(durationNum * 0.25)} min) - Apply learning
+6. 🪞 Closing Reflection (${Math.round(durationNum * 0.15)} min) - Consolidate, celebrate
+
+📌 FACILITATOR NOTES (6-8 specific tips):
+- Pre-workshop preparation checklist
+- Dealing with shy children
+- Managing group energy levels
+- Emergency backup activities
+- Parent communication tips
+
+Make every activity FUN, ENGAGING, and EDUCATIONAL!`;
 
     const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -432,43 +462,121 @@ export async function enhancePosterPrompt(input: {
 }
 
 /**
- * Generate 6 daily tips/advice content based on the workshop topic
+ * Generate 6 high-quality Instagram-ready daily tips based on the workshop topic
  */
 export interface DailyTip {
     day: number;
-    title: string;
-    content: string; // The advice text
-    imagePrompt: string; // English prompt for image generation
+    title: string; // Arabic title (short, catchy)
+    titleEn: string; // English title
+    content: string; // Detailed Arabic advice (3-5 sentences)
+    instagramCaption: string; // Ready-to-post Instagram caption with emojis and hashtags
+    instagramStoryText: string; // Short text for Instagram stories (1-2 sentences)
+    imagePrompt: string; // English prompt for image generation with Arabic text
 }
 
 export async function generateDailyTips(topic: string, workshopTitle: string): Promise<DailyTip[]> {
-    const systemPrompt = `You are a social media content strategist for the "Dar Takafa Ben Arous" cultural center in Tunisia.
-    
-    The user has just hosted a workshop on: "${topic}".
-    Your task is to generate a CONTENT CALENDAR for the next 6 days to keep the audience engaged.
-    
-    Requirements:
-    - 6 DISTINCT posts (Day 1 to 6).
-    - Content: Valuable advice, tips, or "Did you know?" facts related to the topic. NOT ADS.
-    - Tone: Helpful, educational, friendly (Arabic).
-    - Image Prompt Strategy:
-      - SETTING: Realistic Tunisian cultural center (bright, Mediterranean, tile patterns).
-      - CHARACTERS: Tunisian children and facilitators.
-      - TEXT IN IMAGE: Explicitly INSTRUCT the image generator to include the Arabic Title of the tip inside the design (e.g. on a card, board, or overlay).
-    
-    Return ONLY a JSON array:
-    [
-      {
-        "day": 1,
-        "title": "Arabic Title (Short)",
-        "content": "Arabic Advice (2-3 sentences)",
-        "imagePrompt": "Create a photorealistic image of... [Tunisian Context]... Include the text '[Arabic Title]' clearly..."
-      },
-      ...
-    ]`;
+    const systemPrompt = `You are a WORLD-CLASS CHILD DEVELOPMENT RESEARCHER and PARENTING EXPERT.
+You have PhD-level knowledge in:
+- Developmental psychology (Piaget, Vygotsky, Montessori)
+- Neuroscience of child brain development
+- Positive parenting research (Gottman, Siegel)
+- Emotional intelligence (Goleman)
+- Play-based learning science
 
-    const userPrompt = `Generate 6 daily engagement tips following the workshop: "${workshopTitle}" (${topic}).
-    Focus on value for parents and children.`;
+🎯 YOUR MISSION:
+Generate 6 "هل تعلم؟" (Did You Know?) Instagram posts about "${topic}" that will AMAZE parents with research-backed facts they've never heard before.
+
+📌 THIS WEEK'S WORKSHOP: "${workshopTitle}"
+
+🧠 CONTENT REQUIREMENTS:
+Each post MUST include:
+1. A SURPRISING STATISTIC or research finding (use real % or numbers)
+2. The SCIENCE behind why this matters for child development
+3. ONE ACTIONABLE TIP parents can do TODAY (specific, not generic)
+
+📱 FORMAT FOR EACH POST:
+
+1. **day** (1-6)
+2. **title** (Arabic) - Start with "هل تعلم؟" + the surprising fact
+   Example: "هل تعلم أن 90% من دماغ الطفل يتشكل قبل سن 5؟"
+3. **titleEn** - English translation
+4. **content** (Arabic, 6-8 sentences):
+   - Sentence 1: The surprising fact with statistic
+   - Sentences 2-3: The science/research behind it
+   - Sentences 4-5: Why this matters for YOUR child specifically
+   - Sentences 6-7: EXACTLY what to do (step-by-step)
+   - Sentence 8: Encouraging closing
+5. **instagramCaption** (Arabic + emojis):
+   - Hook: "🧠 هل تعلم أن..." 
+   - The fact + why it matters
+   - "💡 جرّب اليوم:" + specific action
+   - Hashtags: #هل_تعلم #تربية_إيجابية #نمو_الطفل #الطفل_القائد #دار_الثقافة_بن_عروس
+6. **instagramStoryText** - One punchy line with emoji
+7. **imagePrompt** (English) - REALISTIC PARENT-CHILD SCENE WITH TEXT:
+
+   CREATE A CINEMATIC 3D SCENE showing:
+   - A Tunisian parent (mother OR father) with their child (age 6-10)
+   - They are ACTIVELY DOING the specific activity from the tip
+   - EMOTION: Joy, wonder, connection, discovery moment
+   - SETTING: Warm Mediterranean Tunisian home with:
+     * Traditional colorful tiles (zellige)
+     * Warm golden sunlight streaming in
+     * Cozy, lived-in family atmosphere
+   - STYLE: Pixar/Disney 3D animation quality
+   - LIGHTING: Golden hour, soft shadows, warm tones
+   - CAMERA: Medium shot showing both parent and child's expressions
+   
+   ✨ TEXT OVERLAY (MUST INCLUDE):
+   - TOP: "يوم [1-6]" in elegant gold Arabic calligraphy
+   - MIDDLE/BOTTOM: "هل تعلم؟" as stylized text badge
+   - CORNER: "الطفل القائد" small branding
+   - Text integrated beautifully into the design with readable contrast
+
+🎯 THE 6-DAY "هل تعلم؟" THEMES:
+
+Day 1 - 🧠 BRAIN SCIENCE:
+"How does ${topic} affect brain development?"
+Include: neural pathways, brain regions, developmental windows
+
+Day 2 - 💡 FUTURE BENEFITS:
+"How does ${topic} lead to future success?"
+Include: studies on successful adults, career benefits, life skills
+
+Day 3 - 🏠 HOME ENVIRONMENT:
+"How does the home environment affect ${topic}?"
+Include: what parents can change at home, environmental factors
+
+Day 4 - ❤️ PARENT-CHILD BONDING:
+"How does ${topic} strengthen parent-child connection?"
+Include: attachment research, oxytocin, quality time science
+
+Day 5 - 🎮 PLAY-BASED LEARNING:
+"How does play develop ${topic}?"
+Include: structured vs free play, specific games, time recommendations
+
+Day 6 - 🌟 LONG-TERM OUTCOMES:
+"What research says about ${topic} and life success?"
+Include: longitudinal studies, famous examples, encouraging statistics
+
+Return ONLY a valid JSON array with 6 objects. No markdown code blocks.`;
+
+    const userPrompt = `Generate 6 "هل تعلم؟" posts for parents about: "${topic}"
+
+⚠️ QUALITY REQUIREMENTS:
+- Each fact must be SURPRISING (something parents don't already know)
+- Include REAL statistics and research (use believable numbers like 73%, 4x more, etc.)
+- The actionable tip must be SPECIFIC (not "play with your child" but "play the mirror game for 10 minutes before bedtime")
+- Image prompts must describe a SPECIFIC scene with the parent and child DOING something
+
+🎨 IMAGE PROMPT EXAMPLES:
+
+For "الذكاء العاطفي":
+"A heartwarming Pixar-style 3D scene: A Tunisian mother sits cross-legged on a colorful Berber rug with her 7-year-old daughter. They are playing the 'emotion faces' game - the mother makes a sad face while the daughter tries to guess the emotion. Both are laughing. Sunlight pours through an arched window with traditional blue tiles. TEXT OVERLAY: 'يوم 4' in elegant gold Arabic calligraphy at top, 'هل تعلم؟' as stylized badge, 'الطفل القائد' small logo."
+
+For "الإبداع":
+"A joyful Pixar-style 3D scene: A Tunisian father and his 8-year-old son are building a cardboard rocket ship together in their living room. The father holds the box while the son paints stars on it with bright colors. Paint splatters on their hands and clothes show they're having fun. Mediterranean home with terracotta tiles. TEXT OVERLAY: 'يوم 5' in gold calligraphy at top, 'هل تعلم؟' badge, 'الطفل القائد' small logo in corner."
+
+Generate the 6 posts now:`;
 
     const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -476,7 +584,8 @@ export async function generateDailyTips(topic: string, workshopTitle: string): P
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 0.8,
+        temperature: 0.9, // Higher for more creative, surprising facts
+        max_tokens: 6000, // More tokens for richer content
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -486,12 +595,35 @@ export async function generateDailyTips(topic: string, workshopTitle: string): P
 
     try {
         const jsonMatch = content.match(/\[[\s\S]*\]/);
+        let tips: DailyTip[];
         if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
+            tips = JSON.parse(jsonMatch[0]);
+        } else {
+            tips = JSON.parse(content);
         }
-        return JSON.parse(content);
+
+        // 📊 LOG THE GENERATED CONTENT FOR DEBUGGING
+        console.log("\n" + "=".repeat(60));
+        console.log("📦 جدول المحتوى الأسبوعي - GENERATED CONTENT KIT");
+        console.log("=".repeat(60));
+        console.log(`📌 Topic: ${topic}`);
+        console.log(`📌 Workshop: ${workshopTitle}`);
+        console.log("-".repeat(60));
+
+        tips.forEach((tip, index) => {
+            console.log(`\n📅 يوم ${index + 1}: ${tip.title}`);
+            console.log(`   📝 ${tip.titleEn || ''}`);
+            console.log(`   📱 Instagram: ${(tip.instagramCaption || '').substring(0, 80)}...`);
+            console.log(`   🎨 Image: ${(tip.imagePrompt || '').substring(0, 100)}...`);
+        });
+
+        console.log("\n" + "=".repeat(60) + "\n");
+
+        return tips;
     } catch (e) {
         console.error("Failed to parse daily tips JSON", e);
+        console.error("Raw content:", content);
         throw new Error("Failed to generate tips");
     }
 }
+

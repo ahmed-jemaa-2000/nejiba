@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
     generateImage,
-    buildPosterPrompt,
     getAspectRatio
 } from "@/lib/ai/geminigen";
+import {
+    buildEnhancedPosterPrompt,
+    getGeminiStyleForPreset
+} from "@/lib/styles/posterStyles";
 
 export interface GenerateImageRequest {
     format: "facebook" | "instagram";
@@ -14,18 +17,33 @@ export interface GenerateImageRequest {
     audience: string;
     description: string;
     descriptionFr?: string;
+    // New style options
+    styleId?: string;
+    colorMoodId?: string;
+    visualElementId?: string;
 }
 
 export async function POST(request: NextRequest) {
     try {
-        const body: GenerateImageRequest = await request.json();
+        const body = await request.json();
 
-        // Validate required fields
-        if (!body.title || !body.date || !body.time) {
-            return NextResponse.json(
-                { error: "Missing required fields: title, date, time" },
-                { status: 400 }
-            );
+        // Validate based on mode
+        if (body.rawPrompt) {
+            // RAW PROMPT MODE: Only need description
+            if (!body.description) {
+                return NextResponse.json(
+                    { error: "Missing required field: description (for rawPrompt mode)" },
+                    { status: 400 }
+                );
+            }
+        } else {
+            // POSTER MODE: Need title (date/time optional now for flexibility)
+            if (!body.title) {
+                return NextResponse.json(
+                    { error: "Missing required field: title" },
+                    { status: 400 }
+                );
+            }
         }
 
         // Check for API key
@@ -34,33 +52,49 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(createPlaceholderResponse(body));
         }
 
-        // Build the optimized prompt
-        let description = body.description;
+        // Use enhanced prompt builder with style presets if styleId is provided
+        let prompt: string;
+        let geminiStyle: "None" | "3D Render" | "Illustration" | "Photorealistic" | "Creative" | "Dynamic" | "Graphic Design 3D" = "Illustration";
 
-        // Safety: Replace TBD/Placeholders with actual values if provided
-        if (body.date && body.date !== "TBD") {
-            description = description.replace(/Date:\s*(TBD|\(To Be Verified\)|\[Date\])/gi, `Date: ${body.date}`);
+        // RAW PROMPT MODE: For content kit - pass description directly for realistic scenes
+        if (body.rawPrompt && body.description) {
+            prompt = body.description;
+            geminiStyle = "3D Render"; // Pixar-style for realistic parent-child scenes
+            console.log("🎬 Using RAW PROMPT mode for realistic scene");
+        } else if (body.styleId) {
+            // POSTER MODE: Style-aware prompt builder for Instagram ads with text
+            prompt = buildEnhancedPosterPrompt({
+                title: body.title,
+                topic: body.description || body.title,
+                audience: body.audience || "children",
+                format: body.format,
+                styleId: body.styleId,
+                colorMoodId: body.colorMoodId,
+                visualElementId: body.visualElementId,
+                // Include text in the image for Instagram ads
+                date: body.date,
+                time: body.time,
+                place: body.place || "دار الثقافة بن عروس",
+            });
+            geminiStyle = getGeminiStyleForPreset(body.styleId);
+            console.log(`🎨 Using style preset: ${body.styleId} → GeminiGen style: ${geminiStyle}`);
+        } else {
+            // Fallback prompt - also include text for ads
+            prompt = `Create a professional INSTAGRAM AD poster for "${body.title}".
+Include Arabic text: Title "${body.title}", Date "${body.date || "[التاريخ]"}", Time "${body.time || "[الوقت]"}", Location "${body.place || "دار الثقافة بن عروس"}".
+Dark elegant background, modern design, suitable for ${body.format === "instagram" ? "Instagram story (9:16)" : "Facebook post (16:9)"}.
+Professional Arabic typography, eye-catching for social media.`;
         }
-        if (body.time && body.time !== "TBD") {
-            description = description.replace(/Time:\s*(TBD|\(To Be Verified\)|\[Time\])/gi, `Time: ${body.time}`);
-        }
 
-        const prompt = buildPosterPrompt({
-            title: body.title,
-            topic: description,
-            audience: body.audience,
-            format: body.format,
-        });
+        console.log("🖼️ Generating poster with GeminiGen:", body.title);
+        console.log("📝 Prompt preview:", prompt.substring(0, 300) + "...");
 
-        console.log("Generating poster with GeminiGen:", body.title);
-        console.log("Prompt:", prompt.substring(0, 200) + "...");
-
-        // Generate the image
+        // Generate the image with appropriate style
         const result = await generateImage({
             prompt,
-            model: "imagen-4-fast",
+            model: "imagen-pro",
             aspect_ratio: getAspectRatio(body.format),
-            style: "Illustration", // Good for event posters
+            style: geminiStyle,
         });
 
         // Check if still processing (unlikely with imagen-pro but handle it)
@@ -73,6 +107,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Return the generated image
+        console.log("✅ Poster generated successfully!");
         return NextResponse.json({
             imageUrl: result.generate_result,
             thumbnailUrl: result.thumbnail_small,
@@ -80,13 +115,14 @@ export async function POST(request: NextRequest) {
             uuid: result.uuid,
         });
     } catch (error) {
-        console.error("Image generation error:", error);
+        console.error("❌ Image generation error:", error);
 
         // Return placeholder on error
         const body = await request.clone().json();
         return NextResponse.json(createPlaceholderResponse(body));
     }
 }
+
 
 function createPlaceholderResponse(data: GenerateImageRequest) {
     const dimensions = data.format === "facebook"

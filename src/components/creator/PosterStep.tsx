@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Button, Card, Input, FieldGroup } from "@/components/ui";
+import { Button, Card, Input, FieldGroup, GenerationLoader, useToast } from "@/components/ui";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { POSTER_STYLES } from "@/lib/styles/posterStyles";
 import type { CreatorState } from "@/app/create/page";
 
 interface PosterStepProps {
@@ -223,8 +224,10 @@ export function PosterStep({
                     place: state.posterPlace,
                     audience: "children",
                     description: state.posterDescription || state.topic,
-                    posterDate: state.posterDate,
-                    posterTime: state.posterTime
+                    // New style options
+                    styleId: state.posterStyleId,
+                    colorMoodId: state.posterColorMood,
+                    visualElementId: state.posterVisualElement,
                 }),
             });
 
@@ -351,129 +354,206 @@ export function PosterStep({
 
     // Poster Settings Form
     return (
-        <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Header */}
-            <div className="text-center space-y-2">
-                <h2 className="text-2xl font-bold text-foreground">إنشاء ملصق الورشة</h2>
-                <p className="text-foreground-secondary">
-                    أضف تفاصيل الموعد وسننشئ ملصقاً احترافياً
-                </p>
-            </div>
+        <>
+            {/* Enhanced Loading Experience */}
+            <GenerationLoader isVisible={isGenerating} type="poster" />
 
-            {/* Editable Title & Description */}
-            <div className="grid gap-4">
-                <FieldGroup label="عنوان الملصق" required>
-                    <Input
-                        value={state.posterTitle}
-                        onChange={(e) => updateState({ posterTitle: e.target.value })}
-                        placeholder="عنوان الورشة"
-                    />
-                </FieldGroup>
-
-                <FieldGroup label="وصف الموضوع (للذكاء الاصطناعي)" required>
-                    <div className="space-y-2">
-                        <div className="relative">
-                            <Input
-                                value={state.posterDescription}
-                                onChange={(e) => updateState({ posterDescription: e.target.value })}
-                                placeholder="وصف موضوع الورشة لتوليد الصورة..."
-                                disabled={isEnhancing}
-                                className={isEnhancing ? "pr-10" : ""}
-                            />
-                            {isEnhancing && (
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 bg-background-secondary/80 px-2 py-1 rounded text-xs text-accent animate-pulse">
-                                    <span>✨ جاري تحليل الخطة...</span>
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex justify-end">
-                            <button
-                                onClick={enhanceDescription}
-                                disabled={isEnhancing}
-                                className="text-xs text-accent hover:text-accent-hover flex items-center gap-1 transition-colors"
-                            >
-                                <span>🔄</span>
-                                إعادة توليد الوصف الذكي
-                            </button>
-                        </div>
-                    </div>
-                </FieldGroup>
-            </div>
-
-            {/* Format Selection */}
-            <div className="grid grid-cols-2 gap-3">
-                <button
-                    onClick={() => updateState({ posterFormat: "facebook" })}
-                    className={`p-4 rounded-xl border-2 transition-all duration-200 ${state.posterFormat === "facebook"
-                        ? "border-accent bg-accent/10"
-                        : "border-border hover:border-accent/50"
-                        }`}
-                >
-                    <span className="text-2xl block mb-2">📘</span>
-                    <p className="font-medium text-foreground">فيسبوك</p>
-                    <p className="text-xs text-foreground-secondary">16:9 أفقي</p>
-                </button>
-                <button
-                    onClick={() => updateState({ posterFormat: "instagram" })}
-                    className={`p-4 rounded-xl border-2 transition-all duration-200 ${state.posterFormat === "instagram"
-                        ? "border-accent bg-accent/10"
-                        : "border-border hover:border-accent/50"
-                        }`}
-                >
-                    <span className="text-2xl block mb-2">📸</span>
-                    <p className="font-medium text-foreground">إنستغرام</p>
-                    <p className="text-xs text-foreground-secondary">9:16 عمودي</p>
-                </button>
-            </div>
-
-            {/* Date & Time */}
-            <div className="grid md:grid-cols-2 gap-4">
-                <FieldGroup label="التاريخ" required>
-                    <Input
-                        type="date"
-                        value={state.posterDate}
-                        onChange={(e) => updateState({ posterDate: e.target.value })}
-                    />
-                </FieldGroup>
-                <FieldGroup label="الوقت" required>
-                    <Input
-                        type="time"
-                        value={state.posterTime}
-                        onChange={(e) => updateState({ posterTime: e.target.value })}
-                    />
-                </FieldGroup>
-            </div>
-
-            {/* Place */}
-            <FieldGroup label="المكان">
-                <Input
-                    value={state.posterPlace}
-                    onChange={(e) => updateState({ posterPlace: e.target.value })}
-                    placeholder="دار الثقافة بن عروس"
-                />
-            </FieldGroup>
-
-            {error && (
-                <div className="p-4 bg-error/10 border border-error/20 rounded-lg text-error">
-                    {error}
+            <div className="space-y-6 animate-in fade-in duration-300">
+                {/* Header */}
+                <div className="text-center space-y-2">
+                    <h2 className="text-2xl font-bold text-foreground">إنشاء ملصق الورشة</h2>
+                    <p className="text-foreground-secondary">
+                        أضف تفاصيل الموعد وسننشئ ملصقاً احترافياً
+                    </p>
                 </div>
-            )}
 
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-3">
-                <Button variant="secondary" onClick={onBack} fullWidth>
-                    ← الخطوة السابقة
-                </Button>
-                <Button
-                    onClick={generatePoster}
-                    loading={isGenerating}
-                    disabled={!state.posterDate || !state.posterTime || isEnhancing}
-                    fullWidth
-                    icon={<span>🎨</span>}
-                >
-                    إنشاء الملصق
-                </Button>
+                {/* Editable Title & Description */}
+                <div className="grid gap-4">
+                    <FieldGroup label="عنوان الملصق" required>
+                        <Input
+                            value={state.posterTitle}
+                            onChange={(e) => updateState({ posterTitle: e.target.value })}
+                            placeholder="عنوان الورشة"
+                        />
+                    </FieldGroup>
+
+                    <FieldGroup label="وصف الموضوع (للذكاء الاصطناعي)" required>
+                        <div className="space-y-3">
+                            {/* Smart Description Info Banner */}
+                            <div className="p-3 bg-accent/10 border border-accent/20 rounded-xl flex items-start gap-3">
+                                <span className="text-xl">✨</span>
+                                <div className="flex-1">
+                                    <p className="text-sm text-foreground font-medium">
+                                        وصف ذكي مبني على خطة الورشة
+                                    </p>
+                                    <p className="text-xs text-foreground-secondary">
+                                        تم توليد هذا الوصف تلقائياً من تفاصيل الورشة. اضغط على "إعادة التوليد" للحصول على وصف جديد.
+                                    </p>
+                                </div>
+                                <Button
+                                    variant="glow"
+                                    size="sm"
+                                    onClick={enhanceDescription}
+                                    disabled={isEnhancing}
+                                    className="text-xs whitespace-nowrap"
+                                >
+                                    {isEnhancing ? (
+                                        <>⏳ جاري التحليل...</>
+                                    ) : (
+                                        <>🔄 إعادة التوليد</>
+                                    )}
+                                </Button>
+                            </div>
+
+                            {/* Description Input */}
+                            <div className="relative">
+                                <textarea
+                                    value={state.posterDescription}
+                                    onChange={(e) => updateState({ posterDescription: e.target.value })}
+                                    placeholder="وصف موضوع الورشة لتوليد الصورة..."
+                                    disabled={isEnhancing}
+                                    className="w-full min-h-[100px] p-4 text-sm bg-background-secondary border border-border rounded-xl focus:border-accent focus:ring-1 focus:ring-accent transition-colors resize-none"
+                                />
+                                {isEnhancing && (
+                                    <div className="absolute inset-0 bg-background/50 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                                        <div className="flex items-center gap-2 text-accent animate-pulse">
+                                            <span className="text-2xl">✨</span>
+                                            <span>جاري تحليل الخطة وتوليد وصف محسّن...</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </FieldGroup>
+                </div>
+
+                {/* ========== STYLE PRESETS ========== */}
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xl">🎨</span>
+                        <h3 className="font-bold text-foreground">نمط الملصق</h3>
+                        <span className="text-sm text-foreground-secondary">Poster Style</span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                        {POSTER_STYLES.map((style) => (
+                            <button
+                                key={style.id}
+                                type="button"
+                                onClick={() => updateState({ posterStyleId: style.id })}
+                                className={`group relative p-4 rounded-2xl border-2 transition-all duration-300 text-center overflow-hidden
+                                ${state.posterStyleId === style.id
+                                        ? "border-accent bg-gradient-to-br from-accent/20 to-accent/5 shadow-lg shadow-accent/20 scale-[1.02]"
+                                        : "border-border hover:border-accent/50 bg-background-secondary hover:bg-background-tertiary hover:shadow-md"
+                                    }`}
+                            >
+                                {/* Selected indicator */}
+                                {state.posterStyleId === style.id && (
+                                    <div className="absolute top-2 right-2 w-3 h-3 rounded-full bg-accent animate-pulse" />
+                                )}
+                                <span className="text-3xl mb-2 block transition-transform group-hover:scale-110">{style.icon}</span>
+                                <p className="font-semibold text-foreground text-sm">{style.name}</p>
+                                <p className="text-xs text-foreground-secondary mt-1">{style.nameEn}</p>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Selected Style Description */}
+                    {state.posterStyleId && (
+                        <div className="p-3 bg-accent/5 rounded-xl border border-accent/20">
+                            <p className="text-sm text-accent">
+                                ✨ {POSTER_STYLES.find(s => s.id === state.posterStyleId)?.description}
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Simplified - removed color mood and visual element for cleaner workflow */}
+
+                <div className="h-px bg-border" />
+
+                {/* ========== FORMAT SELECTION ========== */}
+                <div className="space-y-3">
+                    <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <span>📐</span> صيغة الملصق <span className="text-foreground-secondary font-normal">Format</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button
+                            type="button"
+                            onClick={() => updateState({ posterFormat: "facebook" })}
+                            className={`p-4 rounded-xl border-2 transition-all duration-200 ${state.posterFormat === "facebook"
+                                ? "border-accent bg-accent/10"
+                                : "border-border hover:border-accent/50"
+                                }`}
+                        >
+                            <span className="text-2xl block mb-2">📘</span>
+                            <p className="font-medium text-foreground">فيسبوك</p>
+                            <p className="text-xs text-foreground-secondary">16:9 أفقي</p>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => updateState({ posterFormat: "instagram" })}
+                            className={`p-4 rounded-xl border-2 transition-all duration-200 ${state.posterFormat === "instagram"
+                                ? "border-accent bg-accent/10"
+                                : "border-border hover:border-accent/50"
+                                }`}
+                        >
+                            <span className="text-2xl block mb-2">📸</span>
+                            <p className="font-medium text-foreground">إنستغرام</p>
+                            <p className="text-xs text-foreground-secondary">9:16 عمودي</p>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Date & Time */}
+                <div className="grid md:grid-cols-2 gap-4">
+                    <FieldGroup label="التاريخ" required>
+                        <Input
+                            type="date"
+                            value={state.posterDate}
+                            onChange={(e) => updateState({ posterDate: e.target.value })}
+                        />
+                    </FieldGroup>
+                    <FieldGroup label="الوقت" required>
+                        <Input
+                            type="time"
+                            value={state.posterTime}
+                            onChange={(e) => updateState({ posterTime: e.target.value })}
+                        />
+                    </FieldGroup>
+                </div>
+
+                {/* Place */}
+                <FieldGroup label="المكان">
+                    <Input
+                        value={state.posterPlace}
+                        onChange={(e) => updateState({ posterPlace: e.target.value })}
+                        placeholder="دار الثقافة بن عروس"
+                    />
+                </FieldGroup>
+
+                {error && (
+                    <div className="p-4 bg-error/10 border border-error/20 rounded-lg text-error">
+                        {error}
+                    </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <Button variant="secondary" onClick={onBack} fullWidth>
+                        ← الخطوة السابقة
+                    </Button>
+                    <Button
+                        onClick={generatePoster}
+                        loading={isGenerating}
+                        disabled={!state.posterDate || !state.posterTime || isEnhancing}
+                        fullWidth
+                        icon={<span>🎨</span>}
+                    >
+                        إنشاء الملصق
+                    </Button>
+                </div>
             </div>
-        </div>
+        </>
     );
 }
+

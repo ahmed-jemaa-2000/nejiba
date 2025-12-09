@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateWorkshopPlan, type WorkshopInput } from "@/lib/ai/openai";
+import { getMaterialNamesForPrompt } from "@/lib/workshop/materials";
+
+interface GenerateWorkshopRequest extends WorkshopInput {
+    selectedMaterials?: string[];
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -11,7 +16,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const body: WorkshopInput = await request.json();
+        const body: GenerateWorkshopRequest = await request.json();
 
         // Validate required fields
         if (!body.topic) {
@@ -31,9 +36,18 @@ export async function POST(request: NextRequest) {
             body.ageRange = "8-10";
         }
 
-        console.log("Generating workshop plan for:", body.topic);
+        // Convert material IDs to names for the prompt
+        const materialNames = body.selectedMaterials
+            ? getMaterialNamesForPrompt(body.selectedMaterials)
+            : [];
 
-        const workshopPlan = await generateWorkshopPlan(body);
+        console.log("🎓 Generating workshop plan for:", body.topic);
+        console.log("📦 With", materialNames.length, "selected materials");
+
+        const workshopPlan = await generateWorkshopPlan({
+            ...body,
+            selectedMaterialNames: materialNames, // Pass material names to prompt
+        });
 
         return NextResponse.json(workshopPlan);
     } catch (error) {
