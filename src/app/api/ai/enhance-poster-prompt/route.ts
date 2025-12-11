@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { enhancePosterPrompt } from "@/lib/ai/openai";
+import { enhancePosterPrompt } from "@/lib/ai";
 
 export async function POST(req: Request) {
     try {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateWorkshopPlan, type WorkshopInput } from "@/lib/ai/openai";
+import { generateWorkshopPlan, type WorkshopInput } from "@/lib/ai";
 import { getMaterialNamesForPrompt } from "@/lib/workshop/materials";
 
 interface GenerateWorkshopRequest extends WorkshopInput {

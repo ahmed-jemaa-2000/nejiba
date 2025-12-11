@@ -5,6 +5,7 @@ import { OpenAI } from "openai";
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
+const model = process.env.OPENAI_MODEL || "gpt-5-mini";
 
 export async function POST(req: Request) {
     try {
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
         }
 
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model,
             messages: [
                 {
                     role: "system",

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateIdeas } from "@/lib/ai/openai";
+import { generateIdeas } from "@/lib/ai";
 
 interface GenerateIdeasRequest {
     theme?: string;

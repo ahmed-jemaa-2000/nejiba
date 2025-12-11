@@ -497,20 +497,17 @@ Generate workshop plan for "${input.topic}" now.
     console.log("\n========== SYSTEM PROMPT ==========\n", systemPrompt, "\n===================================\n");
     console.log("\n========== USER PROMPT ============\n", userPrompt, "\n===================================\n");
 
-    // Model options (ranked by value for this use case):
-    // 1. "gpt-5-mini"  - $0.006/workshop - BEST VALUE ✅
-    // 2. "gpt-5-nano"   - $0.004/workshop - CHEAPEST (33% cheaper, test quality first)
-    // 3. "gpt-5-mini"   - $0.021/workshop - PREMIUM (3.5x more, newer knowledge Oct 2024)
     const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini", // Current: Best value - fast, cheap, excellent quality
+        model: "gpt-5.1", // Using GPT-5.1 with explicit LOW reasoning for speed
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 1,
+        // temperature: 1, // Must be default/omitted for reasoning models
+        reasoning_effort: "low", // "low" = faster response, less deep thinking
         max_completion_tokens: 16000,
         response_format: { type: "json_object" },
-    });
+    } as any); // Cast to any because SDK might not have typing yet
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
@@ -641,13 +638,13 @@ ${customInstructions ? `Special instructions: ${customInstructions}` : ""}
 Create a DIFFERENT, creative activity that fits the same time slot and workshop theme!`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: "gpt-4o-mini",
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
         temperature: 0.9,
-        max_completion_tokens: 800,
+        max_tokens: 800,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -701,13 +698,13 @@ Position: Activity ${activityIndex + 1} of ${workshopPlan.timeline.length}
 Make each alternative unique and creative!`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: "gpt-4o-mini",
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
         temperature: 0.95,
-        max_completion_tokens: 2000,
+        max_tokens: 2000,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -768,13 +765,13 @@ Each idea should be:
 - Fun and engaging`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: "gpt-4o-mini",
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
         temperature: 0.9,
-        max_completion_tokens: 2000,
+        max_tokens: 2000,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -855,7 +852,7 @@ export async function enhancePosterPrompt(input: {
     Style: High-end 3D Pixar Style, set in a bright Tunisian cultural club.`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: "gpt-4o-mini",
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -1001,13 +998,13 @@ For "الإبداع":
 Generate the 6 posts now:`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: "gpt-4o-mini",
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
         temperature: 0.9, // Higher for more creative, surprising facts
-        max_completion_tokens: 6000, // More tokens for richer content
+        max_tokens: 6000, // More tokens for richer content
     });
 
     const content = completion.choices[0]?.message?.content;

@@ -3,7 +3,7 @@ import {
     regenerateActivity,
     generateAlternatives,
     type WorkshopPlanData
-} from "@/lib/ai/openai";
+} from "@/lib/ai";
 
 interface RegenerateRequest {
     workshopPlan: WorkshopPlanData;
