@@ -216,42 +216,10 @@ export function WorkshopPlan({
                         {plan.facilitatorNotes.duringWorkshop && plan.facilitatorNotes.duringWorkshop.length > 0 && (
                             <NotesBlock title="أثناء الورشة" items={plan.facilitatorNotes.duringWorkshop} />
                         )}
-                        {plan.facilitatorNotes.emergencyActivities &&
-                            plan.facilitatorNotes.emergencyActivities.length > 0 && (
-                                <div className="space-y-2 rounded-xl border border-amber-100 bg-amber-50 p-3">
-                                    <p className="text-sm font-semibold text-amber-800">أنشطة طوارئ</p>
-                                    {plan.facilitatorNotes.emergencyActivities.map((activity, i) => (
-                                        <div key={i} className="rounded-lg bg-white/70 p-2 text-sm text-slate-700">
-                                            <p className="font-semibold text-slate-900">
-                                                {activity.name}{" "}
-                                                <span className="text-slate-500">({activity.duration})</span>
-                                            </p>
-                                            <p>{activity.description}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        {plan.facilitatorNotes.commonChallenges &&
-                            plan.facilitatorNotes.commonChallenges.length > 0 && (
-                                <div className="space-y-2 rounded-xl border border-red-100 bg-red-50 p-3">
-                                    <p className="text-sm font-semibold text-red-800">تحديات شائعة وحلول</p>
-                                    {plan.facilitatorNotes.commonChallenges.map((item, i) => (
-                                        <div key={i} className="rounded-lg bg-white/80 p-2 text-sm text-slate-700">
-                                            <p className="font-semibold text-red-700">التحدي: {item.challenge}</p>
-                                            <p className="text-slate-800">الحل: {item.solution}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
                     </div>
                 )}
             </Section>
 
-            {plan.emergencyBackup && (
-                <Section title="خطة بديلة سريعة" subtitle="Emergency backup">
-                    <p className="rounded-xl bg-red-50 p-3 text-red-800">{plan.emergencyBackup}</p>
-                </Section>
-            )}
         </div>
     );
 }
@@ -341,26 +309,6 @@ function TimelineActivity({
                 </Block>
             )}
 
-            {variations && (
-                <Block title="تعديلات ومستويات">
-                    {Array.isArray(variations) ? (
-                        <ul className="space-y-1 text-sm text-slate-700">
-                            {variations.map((variation, i) => (
-                                <li key={i} className="flex gap-2">
-                                    <span className="text-green-600">•</span>
-                                    <span>{variation}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <div className="grid gap-2 md:grid-cols-3">
-                            {variations.easy && <Pill label="سهل" value={variations.easy} color="green" />}
-                            {variations.medium && <Pill label="متوسط" value={variations.medium} color="amber" />}
-                            {variations.hard && <Pill label="متقدم" value={variations.hard} color="red" />}
-                        </div>
-                    )}
-                </Block>
-            )}
 
             {activity.safetyTips && (
                 <div className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -381,15 +329,6 @@ function TimelineActivity({
                 </Block>
             )}
 
-            {(activity.facilitatorTips || shyChildTip || activeChildTip) && (
-                <div className="mt-3 grid gap-2 md:grid-cols-3">
-                    {activity.facilitatorTips && (
-                        <TipCard label="نصيحة للميسر" color="blue" text={activity.facilitatorTips} />
-                    )}
-                    {shyChildTip && <TipCard label="الطفل الخجول" color="purple" text={shyChildTip} />}
-                    {activeChildTip && <TipCard label="الطفل النشيط" color="orange" text={activeChildTip} />}
-                </div>
-            )}
 
             <div className="no-print mt-4 border-t border-slate-100 pt-3">
                 {isRegenerating ? (

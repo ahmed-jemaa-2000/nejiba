@@ -22,11 +22,47 @@ Font.register({
     ],
 });
 
+// Enhanced Color Palette
+const colors = {
+    // Primary
+    primary: '#4F46E5',
+    primaryLight: '#EEF2FF',
+    primaryDark: '#4338CA',
+
+    // Activity type colors
+    welcome: '#10B981',      // Green
+    main: '#3B82F6',         // Blue
+    transition: '#F59E0B',   // Amber
+    reflection: '#8B5CF6',   // Purple
+    closing: '#EC4899',      // Pink
+
+    // Section colors
+    materials: '#F59E0B',    // Amber
+    schedule: '#06B6D4',     // Cyan
+    objectives: '#EC4899',   // Pink
+    activities: '#8B5CF6',   // Purple
+
+    // Text
+    heading: '#1E293B',
+    body: '#334155',
+    light: '#64748B',
+    white: '#FFFFFF',
+
+    // Backgrounds
+    cream: '#FFFBEB',
+    lightGreen: '#F0FDF4',
+    lightBlue: '#EFF6FF',
+    lightPurple: '#FAF5FF',
+    lightPink: '#FDF2F8',
+    lightAmber: '#FFFBEB',
+    gray: '#F8FAFC',
+};
+
 // Styles
 const styles = StyleSheet.create({
     page: {
         flexDirection: 'column',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: colors.cream,
         fontFamily: 'Amiri',
         padding: 30,
     },
@@ -101,25 +137,27 @@ const styles = StyleSheet.create({
     },
     section: {
         marginBottom: 15,
-        padding: 10,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 4,
-        borderWidth: 1, // Add border to visualize box
-        borderColor: '#F1F5F9', // Light border
+        padding: 12,
+        backgroundColor: colors.white,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.primaryLight,
     },
     sectionHeader: {
         flexDirection: 'row-reverse',
         alignItems: 'center',
-        marginBottom: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
-        paddingBottom: 4,
+        marginBottom: 10,
+        backgroundColor: colors.primaryLight,
+        padding: 8,
+        borderRadius: 6,
+        borderLeftWidth: 4,
+        borderLeftColor: colors.primary,
     },
     sectionTitle: {
-        fontSize: 14,
+        fontSize: 13,
         fontFamily: 'Tajawal',
         fontWeight: 'bold',
-        color: '#0F172A',
+        color: colors.primary,
         textAlign: 'right',
     },
     list: {
@@ -140,11 +178,13 @@ const styles = StyleSheet.create({
     },
     timelineItem: {
         marginBottom: 15,
-        padding: 10,
-        backgroundColor: '#FAFAF9',
-        borderRadius: 4,
-        borderRightWidth: 3,
-        borderRightColor: '#4F46E5',
+        padding: 12,
+        backgroundColor: colors.white,
+        borderRadius: 8,
+        borderRightWidth: 4,
+        borderRightColor: colors.main,  // Will be dynamic based on activity type
+        borderWidth: 1,
+        borderColor: colors.lightBlue,
     },
     timelineHeader: {
         flexDirection: 'row-reverse',
@@ -217,6 +257,14 @@ interface WorkshopPDFProps {
     input: WorkshopInput;
 }
 
+// Helper function to get activity color based on block type or position
+const getActivityColor = (index: number, total: number): string => {
+    if (index === 0) return colors.welcome;  // First activity (opener)
+    if (index === total - 1) return colors.closing;  // Last activity
+    if (index === Math.floor(total / 2)) return colors.transition;  // Middle
+    return index % 2 === 0 ? colors.main : colors.reflection;  // Alternate colors
+};
+
 export const WorkshopPDF = ({ plan, input }: WorkshopPDFProps) => {
     return (
         <Document>
@@ -261,7 +309,7 @@ export const WorkshopPDF = ({ plan, input }: WorkshopPDFProps) => {
                 {/* Learning Objectives */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>أهداف التعلم</Text>
+                        <Text style={styles.sectionTitle}>🎯 أهداف التعلم</Text>
                     </View>
                     <View style={styles.list}>
                         {plan.objectives.map((obj, i) => (
@@ -276,7 +324,7 @@ export const WorkshopPDF = ({ plan, input }: WorkshopPDFProps) => {
                 {/* Materials */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>المواد المطلوبة</Text>
+                        <Text style={styles.sectionTitle}>📦 المواد المطلوبة</Text>
                     </View>
                     <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 5 }}>
                         {plan.materials.map((m, i) => (
@@ -297,9 +345,10 @@ export const WorkshopPDF = ({ plan, input }: WorkshopPDFProps) => {
                 {/* Timeline Activities */}
                 {plan.timeline.map((activity, i) => {
                     const stepsData = (activity as any).steps || activity.instructions || [];
+                    const activityColor = getActivityColor(i, plan.timeline.length);
 
                     return (
-                        <View key={i} style={styles.timelineItem} wrap={false}>
+                        <View key={i} style={{...styles.timelineItem, borderRightColor: activityColor, borderColor: activityColor + '20'}} wrap={false}>
                             <View style={styles.timelineHeader}>
                                 <View>
                                     <Text style={styles.timelineTitle}>{activity.title}</Text>
@@ -327,19 +376,6 @@ export const WorkshopPDF = ({ plan, input }: WorkshopPDFProps) => {
                                 </View>
                             )}
 
-                            {/* Facilitator Tip */}
-                            {activity.facilitatorTips && (
-                                <View style={{
-                                    marginTop: 5,
-                                    backgroundColor: '#EFF6FF',
-                                    padding: 5,
-                                    borderRadius: 3
-                                }}>
-                                    <Text style={{ fontSize: 8, color: '#1E40AF', textAlign: 'right' }}>
-                                        💡 نصيحة الميسر: {activity.facilitatorTips}
-                                    </Text>
-                                </View>
-                            )}
                         </View>
                     );
                 })}
