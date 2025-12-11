@@ -68,8 +68,8 @@ export class OpenAIProvider implements AIProvider {
 
         this.config = {
             workshop: "gpt-5.1",
-            activities: "gpt-4o-mini",
-            maxTokensWorkshop: 16000,
+            activities: "gpt-5-mini",
+            maxTokensWorkshop: 24000,
             maxTokensActivity: 2000,
             reasoning: { reasoning_effort: "low" },
         };
@@ -220,7 +220,7 @@ Create a DIFFERENT, creative activity that fits the same time slot and workshop 
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt },
                 ],
-                temperature: 0.9,
+                temperature: 1,
                 max_tokens: 800,
             });
 
@@ -323,7 +323,7 @@ Each idea should be:
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt },
                 ],
-                temperature: 0.9,
+                temperature: 1,
                 max_tokens: 2000,
             });
 
@@ -358,7 +358,7 @@ Each post must include surprising facts, research-backed statistics, and actiona
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt },
                 ],
-                temperature: 0.9,
+                temperature: 1,
                 max_tokens: 6000,
             });
 
@@ -419,7 +419,7 @@ Style: High-end 3D Pixar Style, set in a bright Tunisian cultural club.`;
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt },
                 ],
-                temperature: 0.85,
+                temperature: 1,
             });
 
             const content = completion.choices[0]?.message?.content;

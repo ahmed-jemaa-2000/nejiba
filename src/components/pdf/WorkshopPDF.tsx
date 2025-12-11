@@ -8,8 +8,8 @@ import type { WorkshopPlanData, WorkshopInput } from '@/app/workshop/page';
 Font.register({
     family: 'Amiri',
     fonts: [
-        { src: 'https://fonts.gstatic.com/s/amiri/v26/J7aRnpd8CGxBHqUpsjyw.ttf' }, // Regular
-        { src: 'https://fonts.gstatic.com/s/amiri/v26/J7acnpd8CGxBHqUpzrYsWRs.ttf', fontWeight: 'bold' }, // Bold
+        { src: 'https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/Amiri-Regular.ttf' }, // Regular
+        { src: 'https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/Amiri-Bold.ttf', fontWeight: 'bold' }, // Bold
     ],
 });
 
@@ -17,8 +17,8 @@ Font.register({
 Font.register({
     family: 'Tajawal',
     fonts: [
-        { src: 'https://fonts.gstatic.com/s/tajawal/v9/Iura6YBj_oCad4k1nzSC.ttf' }, // Regular
-        { src: 'https://fonts.gstatic.com/s/tajawal/v9/Iura6YBj_oCad4k1lzRCFw.ttf', fontWeight: 'bold' }, // Bold
+        { src: 'https://raw.githubusercontent.com/google/fonts/main/ofl/tajawal/Tajawal-Regular.ttf' }, // Regular
+        { src: 'https://raw.githubusercontent.com/google/fonts/main/ofl/tajawal/Tajawal-Bold.ttf', fontWeight: 'bold' }, // Bold
     ],
 });
 

@@ -643,7 +643,7 @@ Create a DIFFERENT, creative activity that fits the same time slot and workshop 
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 0.9,
+        temperature: 1,
         max_tokens: 800,
     });
 
@@ -770,7 +770,7 @@ Each idea should be:
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 0.9,
+        temperature: 1,
         max_tokens: 2000,
     });
 
@@ -857,7 +857,7 @@ export async function enhancePosterPrompt(input: {
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 0.85,
+        temperature: 1,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -1003,7 +1003,7 @@ Generate the 6 posts now:`;
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 0.9, // Higher for more creative, surprising facts
+        temperature: 1, // Higher for more creative, surprising facts
         max_tokens: 6000, // More tokens for richer content
     });
 

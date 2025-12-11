@@ -75,7 +75,7 @@ export class ZhipuAIProvider implements AIProvider {
             activities: "glm-4.6",
             maxTokensWorkshop: 16000,
             maxTokensActivity: 2000,
-            temperature: 0.9,
+            temperature: 1,
             reasoning: { thinking: true }, // GLM-4.6 reasoning parameter
         };
     }
@@ -416,7 +416,7 @@ Style: High-end 3D Pixar Style, set in a bright Tunisian cultural club.`;
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt },
                 ],
-                temperature: 0.85,
+                temperature: 1,
             });
 
             const content = completion.choices[0]?.message?.content;

@@ -39,14 +39,8 @@ export interface WorkshopActivity {
     detailedSteps?: string[]; // Alias for backward compatibility
 
     // Enhanced details for PDF quality
-    variations?: string[]; // 2-3 difficulty levels or alternatives
     safetyTips?: string; // Age-specific safety considerations
     debriefQuestions?: string[]; // 2-3 reflection questions for kids
-
-    // Facilitator support
-    facilitatorTips?: string;
-    shyChildTip?: string;
-    activeChildTip?: string;
     funFactor?: string;
 }
 
@@ -88,16 +82,11 @@ export interface WorkshopPlanData {
         questions: string[];
     };
 
-    // Support both old (string[]) and new (object) format
+    // Simple facilitator notes
     facilitatorNotes: string[] | {
         beforeWorkshop?: string[];
         duringWorkshop?: string[];
-        emergencyActivities?: { name: string; duration: string; description: string }[];
-        commonChallenges?: { challenge: string; solution: string }[];
     };
-
-    // Emergency backup game
-    emergencyBackup?: string;
 }
 
 const AGE_DESCRIPTORS: Record<string, { ar: string; en: string; characteristics: string }> = {
@@ -261,9 +250,6 @@ Return ONLY valid JSON:
           "ما أكثر شيء أعجبكم؟",
           "ماذا تعلمنا؟"
         ],
-        "facilitatorTips": "نصيحة للميسر",
-        "shyChildTip": "للطفل الخجول: ابدأ به كمساعد",
-        "activeChildTip": "للطفل النشيط: اجعله قائد الفريق",
         "funFactor": "لماذا سيحب الأطفال هذا النشاط",
         "facilitatorNotes": "ملاحظات إضافية"
       }
@@ -293,14 +279,8 @@ Return ONLY valid JSON:
         { "step": 7, "timeHint": "(1 دقيقة)", "spokenPromptAr": "مين الأسرع؟", "action": "منافسة" },
         { "step": 8, "timeHint": "(1 دقيقة)", "spokenPromptAr": "تصفيق!", "action": "احتفال" }
       ],
-      "variations": {
-        "easy": "للصغار 6-7: ...",
-        "medium": "للمتوسطين 8-10: ...",
-        "hard": "للأكبر 11+: ..."
-      },
       "safetyTips": "تأكد من المسافة بين الأطفال",
-      "debriefQuestions": ["ما أكثر شيء أعجبكم؟", "ماذا تعلمنا؟"],
-      "facilitatorTips": "نصيحة للميسر"
+      "debriefQuestions": ["ما أكثر شيء أعجبكم؟", "ماذا تعلمنا؟"]
     }
   ],
   "closingReflection": {
@@ -327,31 +307,8 @@ Return ONLY valid JSON:
       "راقب طاقة المجموعة وعدّل الوتيرة",
       "استخدم إشارة الهدوء عند الحاجة",
       "شجع كل طفل بالاسم"
-    ],
-    "emergencyActivities": [
-      {
-        "name": "تمثال التجمد",
-        "duration": "3-5 دقائق",
-        "description": "عندما أقول تجمد! يتجمد الجميع. آخر من يتحرك يخرج."
-      },
-      {
-        "name": "مرآة المحاكاة",
-        "duration": "3-5 دقائق",
-        "description": "ثنائيات يقلدون حركات بعضهم كالمرآة."
-      }
-    ],
-    "commonChallenges": [
-      {
-        "challenge": "الأطفال لا يريدون المشاركة",
-        "solution": "ابدأ باللعب مع طفل متحمس واحد، الباقون سينضمون"
-      },
-      {
-        "challenge": "الفوضى والضوضاء",
-        "solution": "استخدم العد التنازلي 5-4-3-2-1 ثم صفر = صمت"
-      }
     ]
-  },
-  "emergencyBackup": "لعبة البطاطا الساخنة: مرر الكرة مع الموسيقى!"
+  }
 }
 
 # TIMELINE STRUCTURE FOR ${durationNum} MINUTES
@@ -370,7 +327,6 @@ Design exactly 5-6 activities:
 # QUALITY CHECKLIST
 ☑️ Every activity has 8-12 steps with EXACT Arabic phrases
 ☑️ Every step has timing hint like (30 ثانية)
-☑️ variations object has easy/medium/hard keys
 ☑️ safetyTips are specific to activity type
 ☑️ debriefQuestions are simple for children
 ☑️ NO passive activities
@@ -507,13 +463,13 @@ Generate workshop plan for "${input.topic}" now.
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 1,
-        max_completion_tokens: 16000,
+        max_completion_tokens: 24000,
         response_format: { type: "json_object" },
     });
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
+        console.error("❌ OpenAI Activity Gen Empty:", JSON.stringify(completion, null, 2));
         throw new Error("No response from OpenAI");
     }
 
@@ -646,12 +602,12 @@ Create a DIFFERENT, creative activity that fits the same time slot and workshop 
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 0.9,
-        max_completion_tokens: 800,
+        max_completion_tokens: 2000,
     });
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
+        console.error("❌ OpenAI Activity Gen Empty:", JSON.stringify(completion, null, 2));
         throw new Error("No response from OpenAI");
     }
 
@@ -706,12 +662,12 @@ Make each alternative unique and creative!`;
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 0.95,
-        max_completion_tokens: 2000,
+        max_completion_tokens: 4000,
     });
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
+        console.error("❌ OpenAI Activity Gen Empty:", JSON.stringify(completion, null, 2));
         throw new Error("No response from OpenAI");
     }
 
@@ -773,12 +729,12 @@ Each idea should be:
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 0.9,
-        max_completion_tokens: 2000,
+        max_completion_tokens: 4000,
     });
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
+        console.error("❌ OpenAI Activity Gen Empty:", JSON.stringify(completion, null, 2));
         throw new Error("No response from OpenAI");
     }
 
@@ -860,11 +816,12 @@ export async function enhancePosterPrompt(input: {
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 0.85,
+        temperature: 1,
     });
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
+        console.error("❌ OpenAI Activity Gen Empty:", JSON.stringify(completion, null, 2));
         throw new Error("No response from OpenAI");
     }
 
@@ -912,7 +869,7 @@ Generate 6 "هل تعلم؟" (Did You Know?) Instagram posts about "${topic}" th
 
 🧠 CONTENT REQUIREMENTS:
 Each post MUST include:
-1. A SURPRISING STATISTIC or research finding (use real % or numbers)
+1. A SURPRISING research-backed insight or finding (focus on general principles, NO percentages or statistics)
 2. The SCIENCE behind why this matters for child development
 3. ONE ACTIONABLE TIP parents can do TODAY (specific, not generic)
 
@@ -920,10 +877,10 @@ Each post MUST include:
 
 1. **day** (1-6)
 2. **title** (Arabic) - Start with "هل تعلم؟" + the surprising fact
-   Example: "هل تعلم أن 90% من دماغ الطفل يتشكل قبل سن 5؟"
+   Example: "هل تعلم أن تعاون الأطفال يبني مهارات قيادية مدى الحياة؟"
 3. **titleEn** - English translation
 4. **content** (Arabic, 6-8 sentences):
-   - Sentence 1: The surprising fact with statistic
+   - Sentence 1: The surprising research-backed insight
    - Sentences 2-3: The science/research behind it
    - Sentences 4-5: Why this matters for YOUR child specifically
    - Sentences 6-7: EXACTLY what to do (step-by-step)
@@ -978,7 +935,13 @@ Include: structured vs free play, specific games, time recommendations
 
 Day 6 - 🌟 LONG-TERM OUTCOMES:
 "What research says about ${topic} and life success?"
-Include: longitudinal studies, famous examples, encouraging statistics
+Include: longitudinal studies, famous examples, encouraging insights
+
+🔧 JSON FORMATTING:
+- Return ONLY valid JSON with NO extra spaces in Arabic text
+- Ensure all quotes and commas are properly placed
+- Double-check JSON structure before returning
+- Each Arabic word should have NO spaces inserted in the middle
 
 Return ONLY a valid JSON array with 6 objects. No markdown code blocks.`;
 
@@ -986,9 +949,11 @@ Return ONLY a valid JSON array with 6 objects. No markdown code blocks.`;
 
 ⚠️ QUALITY REQUIREMENTS:
 - Each fact must be SURPRISING (something parents don't already know)
-- Include REAL statistics and research (use believable numbers like 73%, 4x more, etc.)
+- Focus on general research-backed principles and actionable insights (NO percentages, NO statistics, NO numbers)
 - The actionable tip must be SPECIFIC (not "play with your child" but "play the mirror game for 10 minutes before bedtime")
 - Image prompts must describe a SPECIFIC scene with the parent and child DOING something
+
+⚠️ CRITICAL: Do NOT include specific percentages, statistics, or numbers in the tips. Focus ONLY on general developmental principles.
 
 🎨 IMAGE PROMPT EXAMPLES:
 
@@ -1006,12 +971,12 @@ Generate the 6 posts now:`;
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 0.9, // Higher for more creative, surprising facts
-        max_completion_tokens: 6000, // More tokens for richer content
+        max_completion_tokens: 12000, // Increased to avoid hitting token limit
     });
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
+        console.error("❌ OpenAI Activity Gen Empty:", JSON.stringify(completion, null, 2));
         throw new Error("No response from OpenAI");
     }
 
