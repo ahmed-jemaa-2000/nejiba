@@ -27,12 +27,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate duration
-        if (!["30", "45", "60"].includes(body.duration)) {
+        if (!["30", "45", "60", "90"].includes(body.duration)) {
             body.duration = "60";
         }
 
         // Validate age range
-        if (!["6-8", "8-10", "10-12", "mixed"].includes(body.ageRange)) {
+        if (!["6-8", "8-10", "10-12", "8-14", "mixed"].includes(body.ageRange)) {
             body.ageRange = "8-10";
         }
 

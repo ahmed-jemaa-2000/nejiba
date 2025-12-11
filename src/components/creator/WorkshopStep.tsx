@@ -24,16 +24,17 @@ interface WorkshopStepProps {
 }
 
 const DURATION_OPTIONS = [
-    { value: "30", label: "30 دقيقة", sublabel: "ورشة قصيرة" },
     { value: "45", label: "45 دقيقة", sublabel: "ورشة متوسطة" },
     { value: "60", label: "60 دقيقة", sublabel: "ورشة كاملة" },
+    { value: "90", label: "90 دقيقة", sublabel: "ورشة مطولة" },
 ];
 
 const AGE_OPTIONS = [
     { value: "6-8", label: "6-8 سنة", sublabel: "أطفال صغار" },
     { value: "8-10", label: "8-10 سنة", sublabel: "أطفال" },
     { value: "10-12", label: "10-12 سنة", sublabel: "ما قبل المراهقة" },
-    { value: "mixed", label: "أعمار مختلطة", sublabel: "6-12 سنة" },
+    { value: "8-14", label: "8-14 سنة", sublabel: "ناشئة" },
+    { value: "mixed", label: "أعمار مختلطة", sublabel: "6-14 سنة" },
 ];
 
 export function WorkshopStep({
@@ -237,8 +238,8 @@ export function WorkshopStep({
                                     key={cat.id}
                                     onClick={() => setExpandedCategory(expandedCategory === cat.id ? null : cat.id)}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-200 ${expandedCategory === cat.id
-                                            ? "border-accent bg-accent/10 text-accent"
-                                            : "border-border hover:border-accent/50 text-foreground-secondary"
+                                        ? "border-accent bg-accent/10 text-accent"
+                                        : "border-border hover:border-accent/50 text-foreground-secondary"
                                         }`}
                                 >
                                     <span>{cat.icon}</span>
@@ -273,8 +274,8 @@ export function WorkshopStep({
                                         key={material.id}
                                         onClick={() => toggleMaterial(material.id)}
                                         className={`p-3 rounded-xl border text-start transition-all duration-200 ${state.selectedMaterials.includes(material.id)
-                                                ? "border-accent bg-accent/10 text-foreground"
-                                                : "border-border hover:border-accent/30 text-foreground-secondary hover:text-foreground"
+                                            ? "border-accent bg-accent/10 text-foreground"
+                                            : "border-border hover:border-accent/30 text-foreground-secondary hover:text-foreground"
                                             }`}
                                     >
                                         <div className="flex items-center gap-2">

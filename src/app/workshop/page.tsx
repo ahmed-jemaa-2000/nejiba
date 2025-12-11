@@ -7,8 +7,8 @@ import { WorkshopPlan } from "@/components/WorkshopPlan";
 
 export interface WorkshopInput {
     topic: string;
-    duration: "30" | "45" | "60";
-    ageRange: "6-8" | "8-10" | "10-12" | "mixed";
+    duration: "45" | "60" | "90";
+    ageRange: "6-8" | "8-10" | "10-12" | "8-14" | "mixed";
 }
 
 export interface WorkshopActivity {
@@ -16,8 +16,22 @@ export interface WorkshopActivity {
     title: string;
     titleEn?: string;
     description: string;
-    instructions: string[];
+    instructions: string[]; // Kept for backward compatibility
+    detailedSteps?: string[]; // New detailed steps
     facilitatorTips?: string;
+    // Game metadata
+    energyLevel?: "🔋" | "🔋🔋" | "🔋🔋🔋" | string;
+    learningGoal?: string;
+    shyChildTip?: string;
+    activeChildTip?: string;
+    gameType?: string;
+    funFactor?: string;
+    groupSize?: string;
+    // Enhanced fields for PDF quality
+    setupSteps?: string[]; // 2-4 preparation steps
+    variations?: string[]; // 2-3 difficulty levels
+    safetyTips?: string; // Age-specific safety considerations
+    debriefQuestions?: string[]; // 2-3 reflection questions
 }
 
 export interface WorkshopPlanData {
@@ -30,14 +44,30 @@ export interface WorkshopPlanData {
         ageGroup: string;
         participants: string;
         level: string;
+        facilitatorCount?: string;
     };
     objectives: {
         ar: string;
         en?: string;
     }[];
-    materials: string[];
+    materials: string[] | { item: string; quantity: string; notes?: string }[];
+    roomSetup?: string;
     timeline: WorkshopActivity[];
-    facilitatorNotes: string[];
+    // Enhanced closing section
+    closingReflection?: {
+        title: string;
+        duration: string;
+        description: string;
+        questions: string[];
+    };
+    // Support both old (string[]) and new (object) format
+    facilitatorNotes: string[] | {
+        beforeWorkshop?: string[];
+        duringWorkshop?: string[];
+        emergencyActivities?: { name: string; duration: string; description: string }[];
+        commonChallenges?: { challenge: string; solution: string }[];
+    };
+    emergencyBackup?: string;
 }
 
 export default function WorkshopPage() {
@@ -160,7 +190,8 @@ function generateSamplePlan(input: WorkshopInput): WorkshopPlanData {
         "6-8": "6-8 سنة",
         "8-10": "8-10 سنة",
         "10-12": "10-12 سنة",
-        "mixed": "أعمار مختلطة (6-12 سنة)",
+        "8-14": "8-14 سنة",
+        "mixed": "أعمار مختلطة (6-14 سنة)",
     };
 
     const durationNum = parseInt(input.duration);

@@ -2,9 +2,12 @@
  * OpenAI Client Wrapper for Nejiba Studio
  * 
  * Provides typed functions for workshop generation and activity regeneration.
+ * 
+ * v2.0 - Enhanced with game library, anti-repetition rules, and gpt-4o model
  */
 
 import OpenAI from "openai";
+import { buildGameExamplesPrompt, ANTI_REPETITION_RULES, getTopicGames } from "./gameLibrary";
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -22,23 +25,79 @@ export interface WorkshopActivity {
     timeRange: string;
     title: string;
     titleEn?: string;
+
+    // Game metadata
+    gameType?: "حركة" | "تمثيل" | "تحدي فريق" | "موسيقى" | "تنافس";
+    energyLevel?: string; // e.g., "🔋🔋🔋 عالي"
+    groupSize?: string; // e.g., "فردي | ثنائي | فرق من 4-5"
+    learningGoal?: string;
+
+    // Core content
     description: string;
-    instructions: string[];
+    setupSteps?: string[]; // 2-4 preparation steps before activity
+    instructions: string[]; // 8-12 detailed steps with exact phrases
+    detailedSteps?: string[]; // Alias for backward compatibility
+
+    // Enhanced details for PDF quality
+    variations?: string[]; // 2-3 difficulty levels or alternatives
+    safetyTips?: string; // Age-specific safety considerations
+    debriefQuestions?: string[]; // 2-3 reflection questions for kids
+
+    // Facilitator support
     facilitatorTips?: string;
+    shyChildTip?: string;
+    activeChildTip?: string;
+    funFactor?: string;
+}
+
+export interface ScheduleBlock {
+    blockType: "opener" | "main" | "transition" | "closing";
+    startMinute: number;
+    endMinute: number;
+    activity: WorkshopActivity;
 }
 
 export interface WorkshopPlanData {
     title: { ar: string; en: string };
+    theme?: string;
+    ageRange?: string;
+    totalDurationMinutes?: number;
+    learningObjectives?: string[];
     generalInfo: {
         duration: string;
         ageGroup: string;
         participants: string;
         level: string;
+        facilitatorCount?: string;
     };
     objectives: { ar: string; en?: string }[];
-    materials: string[];
+    materials: string[] | { item: string; quantity: string; notes?: string }[];
+    roomSetup?: string;
+    schedule?: ScheduleBlock[];
     timeline: WorkshopActivity[];
-    facilitatorNotes: string[];
+
+    // Enhanced closing section
+    closingReflection?: {
+        title: string;
+        nameAr?: string;
+        nameEn?: string;
+        duration?: string;
+        durationMinutes?: number;
+        description: string;
+        steps?: string[];
+        questions: string[];
+    };
+
+    // Support both old (string[]) and new (object) format
+    facilitatorNotes: string[] | {
+        beforeWorkshop?: string[];
+        duringWorkshop?: string[];
+        emergencyActivities?: { name: string; duration: string; description: string }[];
+        commonChallenges?: { challenge: string; solution: string }[];
+    };
+
+    // Emergency backup game
+    emergencyBackup?: string;
 }
 
 const AGE_DESCRIPTORS: Record<string, { ar: string; en: string; characteristics: string }> = {
@@ -57,111 +116,398 @@ const AGE_DESCRIPTORS: Record<string, { ar: string; en: string; characteristics:
         en: "10-12 years old",
         characteristics: "longer attention span (20-25 min), peer-focused, can handle discussions",
     },
+    "8-14": {
+        ar: "8-14 سنة",
+        en: "8-14 years old",
+        characteristics: "varied attention spans (15-25 min), enjoy team competitions, need challenging activities, like feeling grown-up",
+    },
     "mixed": {
-        ar: "أعمار مختلطة (6-12 سنة)",
-        en: "mixed ages (6-12 years old)",
+        ar: "أعمار مختلطة (6-14 سنة)",
+        en: "mixed ages (6-14 years old)",
         characteristics: "varied needs, pair older with younger, flexible activities",
     },
 };
 
 /**
- * Generate a complete workshop plan using GPT-4o-mini
+ * Generate a complete workshop plan using GPT-4o
+ * Enhanced version with Professor Playful persona, game library, and anti-repetition rules
+ * 
+ * v2.0 - Upgraded to gpt-4o for better creativity and topic-specific activities
  */
 export async function generateWorkshopPlan(input: WorkshopInput): Promise<WorkshopPlanData> {
     const ageInfo = AGE_DESCRIPTORS[input.ageRange];
     const durationNum = parseInt(input.duration);
 
-    const systemPrompt = `You are a World-Class Educational Consultant for creative youth programs in Tunisia (like "Leader Kid").
-    
-    Create a HIGHLY DETAILED, PROFESSIONAL Workshop Facilitation Guide in Arabic.
-    
-    CRITICAL REQUIREMENTS:
-    - **Professional Depth**: Do not give generic steps. Give EXACT instructions (e.g., "Ask children to stand in a circle and hold hands..." not just "Icebreaker").
-    - **Cultural Relevance**: Use Tunisian cultural references where appropriate.
-    - **Language**: Modern, inspiring Arabic (العربية المعاصرة) with English translations for key terms.
-    - **Engagement**: Activities must be active, kinetic, and collaborative.
-    - **Structure**: Include a "Hook" to start, "Deep Work" in the middle, and "Reflection" at the end.
-    
-    Return ONLY valid JSON matching this exact structure (no markdown, no code blocks):
-    {
-      "title": { "ar": "ورشة: [الموضوع]", "en": "Workshop: [Topic]" },
-      "generalInfo": {
-        "duration": "[X] دقيقة",
-        "ageGroup": "${ageInfo.ar}",
-        "participants": "10-15 طفل",
-        "level": "مبتدئ"
-      },
-      "objectives": [
-        { "ar": "هدف بالعربية", "en": "Objective in English" }
-      ],
-      "materials": ["مادة 1", "مادة 2"],
-      "timeline": [
-        {
-          "timeRange": "0-X دقيقة",
-          "title": "عنوان النشاط",
-          "titleEn": "Activity Title",
-          "description": "وصف النشاط",
-          "instructions": ["خطوة 1", "خطوة 2"],
-          "facilitatorTips": "نصيحة للميسر"
-        }
-      ],
-      "facilitatorNotes": ["ملاحظة 1", "ملاحظة 2"]
-    }`;
-
     // Build materials context for the prompt
     const materialsContext = input.selectedMaterialNames && input.selectedMaterialNames.length > 0
-        ? `\n\nAVAILABLE MATERIALS (use these specifically in activities):\n${input.selectedMaterialNames.map(m => `- ${m}`).join('\n')}\n\nIMPORTANT: Design activities specifically around these available materials!`
-        : "";
+        ? `\n\nAvailable Materials (MUST design activities using these):\n${input.selectedMaterialNames.map(m => `- ${m}`).join('\n')}`
+        : "\n\nUse common workshop items: balls, scarves, cones, music player, balloons, hula hoops, bean bags, ropes.";
 
-    const userPrompt = `Create a ${durationNum}-minute workshop plan for: "${input.topic}"
+    // Get topic-specific game examples and anti-repetition rules
+    const gameExamplesPrompt = buildGameExamplesPrompt(input.topic);
+    const topicMapping = getTopicGames(input.topic);
 
-Age group: ${ageInfo.ar} (${ageInfo.en})
-Age characteristics: ${ageInfo.characteristics}
-Context: Cultural center "Leader Kid" (الطفل القائد) club in Ben Arous, Tunisia
+    const systemPrompt = `You are **Professor Playful** (البروفيسور المرح), a senior children's workshop designer with 25+ years creating unforgettable educational play experiences for kids aged 6-14 in Tunisia.
+
+# YOUR MISSION
+Produce an **ACTION-READY** workshop plan any facilitator can run TODAY. Prioritize:
+- 🏃 MOVEMENT: Running, jumping, dancing, physical challenges
+- 🤝 TEAMWORK: Group challenges with visible scoring
+- 🎭 DRAMA: Role-play, charades, freeze poses, acting
+- 🎵 MUSIC: Rhythm games, freeze dance, musical chairs
+- 🏆 COMPETITION: Points, teams, winners with celebration
+
+# ⛔ ABSOLUTELY FORBIDDEN (NEVER USE)
+❌ Writing activities - NO اكتبوا، دونوا، سجلوا
+❌ Coloring/drawing - NO ارسموا، لونوا
+❌ Reading activities - NO اقرأوا
+❌ Sitting quietly for more than 30 seconds
+❌ Discussions where kids just talk (must DO something)
+❌ Watching videos/screens
+❌ Any passive activity where kids are observers
+
+# ✅ EVERY ACTIVITY MUST BE PHYSICAL
+Kids must be:
+- Standing, moving, jumping, running, dancing
+- Acting, miming, gesturing, posing
+- Passing objects, throwing, catching
+- Racing, competing physically
+- Making sounds, clapping, stomping
+
+# OUTPUT REQUIREMENTS
+
+## ⚠️ CRITICAL: MINIMUM 8 STEPS PER ACTIVITY
+Each activity MUST have exactly 8-12 steps. NOT 5, NOT 6. MINIMUM 8.
+
+## Language Rules
+- ALL narrative text in ARABIC
+- English titles alongside Arabic names
+
+## Each Activity MUST Have:
+1. **setup** (2-4 prep steps before kids arrive)
+2. **steps** (⚠️ EXACTLY 8-12 numbered steps with):
+   - step number (1 through 8 minimum)
+   - timeHint: "(30 ثانية)" or "(1 دقيقة)"
+   - spokenPromptAr: EXACT Arabic phrase to say in quotes
+   - action: what kids PHYSICALLY do (movement, not writing!)
+3. **variations**: { easy, medium, hard } with age-specific adaptations
+4. **safetyTips**: concrete precautions for this activity
+5. **debriefQuestions**: 2-3 child-friendly reflection questions
+
+# JSON OUTPUT FORMAT (STRICT)
+
+Return ONLY valid JSON:
+{
+  "title": { "ar": "ورشة: [الموضوع]", "en": "Workshop: [Topic]" },
+  "theme": "[Main theme]",
+  "ageRange": "${input.ageRange}",
+  "totalDurationMinutes": ${durationNum},
+  "learningObjectives": [
+    "هدف تعليمي 1 - Learning objective 1",
+    "هدف تعليمي 2 - Learning objective 2",
+    "هدف تعليمي 3 - Learning objective 3",
+    "هدف تعليمي 4 - Learning objective 4",
+    "هدف تعليمي 5 - Learning objective 5"
+  ],
+  "materials": [
+    { "item": "اسم المادة", "quantity": "العدد", "notes": "ملاحظة" }
+  ],
+  "roomSetup": "وصف ترتيب الغرفة قبل وصول الأطفال...",
+  "generalInfo": {
+    "duration": "${input.duration} دقيقة",
+    "ageGroup": "${ageInfo.ar}",
+    "participants": "10-15 طفل",
+    "level": "مبتدئ",
+    "facilitatorCount": "1-2 ميسر"
+  },
+  "objectives": [
+    { "ar": "هدف 1", "en": "Objective 1" }
+  ],
+  "schedule": [
+    {
+      "blockType": "opener",
+      "startMinute": 0,
+      "endMinute": 8,
+      "activity": {
+        "nameAr": "اسم اللعبة",
+        "nameEn": "Game Name",
+        "title": "اسم اللعبة",
+        "titleEn": "Game Name",
+        "timeRange": "0-8 دقيقة",
+        "recommendedAge": "${input.ageRange}",
+        "durationMinutes": 8,
+        "groupSize": "whole group",
+        "learningGoals": ["مهارة 1", "مهارة 2"],
+        "materialsNeeded": ["كرة", "موسيقى"],
+        "gameType": "حركة",
+        "energyLevel": "🔋🔋🔋 عالي",
+        "description": "وصف النشاط بالتفصيل...",
+        "setup": [
+          "التحضير 1: رتب المكان",
+          "التحضير 2: جهز المواد"
+        ],
+        "steps": [
+          { "step": 1, "timeHint": "(30 ثانية)", "spokenPromptAr": "يا أبطال! تعالوا نقف في دائرة كبيرة!", "action": "الأطفال يقفون في دائرة" },
+          { "step": 2, "timeHint": "(1 دقيقة)", "spokenPromptAr": "اليوم عندنا لعبة حماسية جداً!", "action": "الميسر يشرح القواعد" }
+        ],
+        "instructions": ["خطوة 1", "خطوة 2"],
+        "variations": {
+          "easy": "🟢 للصغار (6-7): تبسيط القواعد...",
+          "medium": "🟡 للمتوسطين (8-10): النسخة الأساسية...",
+          "hard": "🔴 للكبار (11-14): إضافة تحديات..."
+        },
+        "safetyTips": "تأكد من المسافة بين الأطفال، الأرضية غير زلقة",
+        "debriefQuestions": [
+          "ما أكثر شيء أعجبكم؟",
+          "ماذا تعلمنا؟"
+        ],
+        "facilitatorTips": "نصيحة للميسر",
+        "shyChildTip": "للطفل الخجول: ابدأ به كمساعد",
+        "activeChildTip": "للطفل النشيط: اجعله قائد الفريق",
+        "funFactor": "لماذا سيحب الأطفال هذا النشاط",
+        "facilitatorNotes": "ملاحظات إضافية"
+      }
+    }
+  ],
+  "timeline": [
+    {
+      "timeRange": "0-11 دقيقة",
+      "title": "اسم اللعبة الحقيقي",
+      "titleEn": "Real Game Name",
+      "description": "وصف حقيقي للنشاط...",
+      "gameType": "حركة",
+      "energyLevel": "🔋🔋🔋 عالي",
+      "groupSize": "الجميع معاً",
+      "learningGoal": "المهارة المحددة",
+      "setupSteps": [
+        "رتب المكان قبل وصول الأطفال",
+        "جهز المواد المطلوبة"
+      ],
+      "steps": [
+        { "step": 1, "timeHint": "(30 ثانية)", "spokenPromptAr": "يا أبطال! تعالوا اجتمعوا!", "action": "الأطفال يركضون نحو الميسر" },
+        { "step": 2, "timeHint": "(1 دقيقة)", "spokenPromptAr": "اليوم عندنا تحدي!", "action": "الميسر يشرح القواعد" },
+        { "step": 3, "timeHint": "(30 ثانية)", "spokenPromptAr": "مين فهم؟", "action": "الأطفال يرفعون أيديهم" },
+        { "step": 4, "timeHint": "(2 دقيقة)", "spokenPromptAr": "يلا نبدأ!", "action": "الأطفال ينفذون النشاط" },
+        { "step": 5, "timeHint": "(2 دقيقة)", "spokenPromptAr": "استمروا!", "action": "تكرار النشاط" },
+        { "step": 6, "timeHint": "(1 دقيقة)", "spokenPromptAr": "ممتاز!", "action": "الميسر يشجع" },
+        { "step": 7, "timeHint": "(1 دقيقة)", "spokenPromptAr": "مين الأسرع؟", "action": "منافسة" },
+        { "step": 8, "timeHint": "(1 دقيقة)", "spokenPromptAr": "تصفيق!", "action": "احتفال" }
+      ],
+      "variations": {
+        "easy": "للصغار 6-7: ...",
+        "medium": "للمتوسطين 8-10: ...",
+        "hard": "للأكبر 11+: ..."
+      },
+      "safetyTips": "تأكد من المسافة بين الأطفال",
+      "debriefQuestions": ["ما أكثر شيء أعجبكم؟", "ماذا تعلمنا؟"],
+      "facilitatorTips": "نصيحة للميسر"
+    }
+  ],
+  "closingReflection": {
+    "nameAr": "دائرة الختام",
+    "nameEn": "Closing Circle",
+    "title": "دائرة الختام",
+    "durationMinutes": 7,
+    "duration": "7 دقائق",
+    "description": "نشاط هادئ للتأمل والاحتفال",
+    "steps": ["step 1", "step 2", "step 3"],
+    "questions": [
+      "ما أكثر شيء استمتعت به اليوم؟",
+      "ما الشيء الجديد الذي تعلمته؟",
+      "ماذا ستخبر أهلك عن ورشة اليوم؟"
+    ]
+  },
+  "facilitatorNotes": {
+    "beforeWorkshop": [
+      "حضّر جميع المواد قبل 15 دقيقة",
+      "رتب المكان بشكل يسمح بالحركة",
+      "تأكد من وجود ماء للأطفال"
+    ],
+    "duringWorkshop": [
+      "راقب طاقة المجموعة وعدّل الوتيرة",
+      "استخدم إشارة الهدوء عند الحاجة",
+      "شجع كل طفل بالاسم"
+    ],
+    "emergencyActivities": [
+      {
+        "name": "تمثال التجمد",
+        "duration": "3-5 دقائق",
+        "description": "عندما أقول تجمد! يتجمد الجميع. آخر من يتحرك يخرج."
+      },
+      {
+        "name": "مرآة المحاكاة",
+        "duration": "3-5 دقائق",
+        "description": "ثنائيات يقلدون حركات بعضهم كالمرآة."
+      }
+    ],
+    "commonChallenges": [
+      {
+        "challenge": "الأطفال لا يريدون المشاركة",
+        "solution": "ابدأ باللعب مع طفل متحمس واحد، الباقون سينضمون"
+      },
+      {
+        "challenge": "الفوضى والضوضاء",
+        "solution": "استخدم العد التنازلي 5-4-3-2-1 ثم صفر = صمت"
+      }
+    ]
+  },
+  "emergencyBackup": "لعبة البطاطا الساخنة: مرر الكرة مع الموسيقى!"
+}
+
+# TIMELINE STRUCTURE FOR ${durationNum} MINUTES
+
+Design exactly 5-6 activities:
+
+| Block | Time | Type | Energy |
+|-------|------|------|--------|
+| opener | 0-${Math.round(durationNum * 0.12)} min | Welcome + Ice breaker | 🔋🔋🔋 HIGH |
+| main | ${Math.round(durationNum * 0.12)}-${Math.round(durationNum * 0.35)} min | Team Competition Game | 🔋🔋🔋 HIGH |
+| transition | ${Math.round(durationNum * 0.35)}-${Math.round(durationNum * 0.42)} min | Quick Energizer | 🔋🔋 MED |
+| main | ${Math.round(durationNum * 0.42)}-${Math.round(durationNum * 0.65)} min | Drama/Acting Game | 🔋🔋🔋 HIGH |
+| main | ${Math.round(durationNum * 0.65)}-${Math.round(durationNum * 0.85)} min | Final Challenge | 🔋🔋🔋 HIGH |
+| closing | ${Math.round(durationNum * 0.85)}-${durationNum} min | Reflection + Celebration | 🔋🔋 MED |
+
+# QUALITY CHECKLIST
+☑️ Every activity has 8-12 steps with EXACT Arabic phrases
+☑️ Every step has timing hint like (30 ثانية)
+☑️ variations object has easy/medium/hard keys
+☑️ safetyTips are specific to activity type
+☑️ debriefQuestions are simple for children
+☑️ NO passive activities
+☑️ At least 4 activities require physical movement
+☑️ schedule array matches timeline array`;
+
+    const userPrompt = `# 🎯 WORKSHOP REQUEST
+
+**Topic**: "${input.topic}"
+**Duration**: ${durationNum} minutes  
+**Age Group**: ${ageInfo.ar} (${ageInfo.en})
+**Characteristics**: ${ageInfo.characteristics}
 ${materialsContext}
 
-CRITICAL OUTPUT REQUIREMENTS:
+**Context**: مركز ثقافي "الطفل القائد" ببن عروس - تونس. 10-15 طفل. قاعة داخلية مع مساحة مفتوحة.
 
-📌 OBJECTIVES (4-5):
-- Specific, measurable learning outcomes
-- Mix of skills: social, emotional, creative, cognitive
+---
 
-📌 MATERIALS (list only what's available above, or suggest additions if needed)
+${gameExamplesPrompt}
 
-📌 TIMELINE (5-6 activities, VERY DETAILED):
-Each activity MUST include:
-- Exact time range (e.g., "0-8 دقيقة")
-- Arabic title + English translation
-- DETAILED description (3-4 sentences explaining the activity)
-- Step-by-step instructions (6-10 specific steps, not generic)
-- Facilitator tip (specific advice for this activity)
+${ANTI_REPETITION_RULES.replace('${"{topic}"}', input.topic)}
 
-Timeline structure for ${durationNum} minutes:
-1. 🎬 Opening Hook (${Math.round(durationNum * 0.1)} min) - Grab attention, set the mood
-2. 🔥 Warm-up Activity (${Math.round(durationNum * 0.15)} min) - Get energy up, build connection
-3. 🎯 Main Activity 1 (${Math.round(durationNum * 0.25)} min) - Core learning experience
-4. 🏃 Movement Break (${Math.round(durationNum * 0.1)} min) - Re-energize
-5. 🌟 Main Activity 2 (${Math.round(durationNum * 0.25)} min) - Apply learning
-6. 🪞 Closing Reflection (${Math.round(durationNum * 0.15)} min) - Consolidate, celebrate
+---
 
-📌 FACILITATOR NOTES (6-8 specific tips):
-- Pre-workshop preparation checklist
-- Dealing with shy children
-- Managing group energy levels
-- Emergency backup activities
-- Parent communication tips
+# ⛔ CRITICAL: NO PLACEHOLDER TEXT
 
-Make every activity FUN, ENGAGING, and EDUCATIONAL!`;
+DO NOT write:
+- "خطوة 1", "خطوة 2", "خطوة 3" ❌
+- "وصف النشاط...", "هدف 1", "هدف 2" ❌
+- Any generic placeholder text ❌
+- "تحدي الفريق" or "التحدي النهائي" as generic names ❌
+
+INSTEAD write REAL, SPECIFIC content:
+- "يا أبطال! قفوا في دائرة كبيرة الآن!" ✅
+- "مرروا الكرة بسرعة قبل ما تنتهي الموسيقى!" ✅
+- Creative game names like "آلة الاختراعات" or "مهندسون صغار" ✅
+
+---
+
+# ⛔ FORBIDDEN WORDS - DO NOT USE THESE VERBS:
+- ❌ اكتبوا (write)
+- ❌ دونوا (note down)  
+- ❌ سجلوا (record/write)
+- ❌ ارسموا (draw)
+- ❌ لونوا (color)
+- ❌ اقرأوا (read)
+
+# ✅ USE THESE ACTION VERBS INSTEAD:
+- ✅ اركضوا (run)
+- ✅ اقفزوا (jump)
+- ✅ ارقصوا (dance)
+- ✅ مثلوا (act)
+- ✅ تجمدوا (freeze)
+- ✅ صفقوا (clap)
+- ✅ مرروا الكرة (pass the ball)
+- ✅ قلدوا (imitate)
+- ✅ ابتكروا (invent/create)
+- ✅ تخيلوا (imagine)
+
+---
+
+# 📋 REQUIRED OUTPUT
+
+## 5 Learning Objectives SPECIFIC to "${input.topic}"
+${topicMapping ? `Use these templates:\n${topicMapping.objectiveTemplates.map((t, i) => `${i + 1}. ${t}`).join('\n')}` : `Write 5 SPECIFIC objectives related to "${input.topic}":\n- يتعلم الطفل [مهارة محددة]\n- يمارس الطفل [سلوك محدد]\n- يكتشف الطفل [قدرة محددة]`}
+
+## 8-12 Materials (NOT 2!)
+List at least 8 materials with quantities and notes.
+
+## ⚠️ ACTIVITY STRUCTURE: THE "GOLDEN GAME LOOP" (REQUIRED)
+Don't just list steps. Design a JOURNEY for each game using these 5 PHASES:
+
+1. **🎣 Phase 1: The Hook (Steps 1-2)**
+   - Grab attention immediately (Story/Fantasy context).
+   - "Imagine we are..." or "Who can be the fastest?"
+
+2. **👀 Phase 2: Visual Demo (Steps 3-4)**
+   - SHOW, don't just tell.
+   - "Watch me do this..."
+   - Verify understanding: "Thumbs up if you got it?"
+
+3. **🟢 Phase 3: Practice Round (Steps 5-6)**
+   - Low stakes, slow motion, no scoring yet.
+   - Let them feel the mechanic safely.
+
+4. **🔥 Phase 4: The Challenge & Twist (Steps 7-9)**
+   - The "Real Game" begins.
+   - ADD A TWIST: "Now do it on one leg!", "Now silent!", "Double speed!"
+
+5. **🚀 Phase 5: The Climax (Steps 10+)**
+   - High energy final round.
+   - "Final Boss" moment or big celebration.
+
+**TOTAL STEPS should naturally be 8-12 because of this structure.**
+
+## Activity Quality Checklist:
+1. **Progression**: Does it get harder/funnier?
+2. **Scaffolding**: Do they practice before competing?
+3. **Twists**: Is there a surprise rule change halfway?
+4. **Unique Mechanic**: Is it DIFFERENT from all other games?
+
+4. **TOPIC-SPECIFIC** - Activities 2, 4, 5 must DIRECTLY teach "${input.topic}"
+5. **variations** object: { "easy": "...", "medium": "...", "hard": "..." }
+6. **safetyTips**: Safety precaution specific to this activity
+7. **debriefQuestions**: 2-3 quick verbal questions (not written!)
+
+---
+
+Generate workshop plan for "${input.topic}" now. 
+
+⚠️ FINAL CHECKLIST (Answer YES to all before submitting):
+☑️ All 6 activities have DIFFERENT core mechanics?
+☑️ At least 3 different gameTypes used?
+☑️ Activities 2, 4, 5 specifically teach "${input.topic}"?
+☑️ Each activity has 8-12 detailed steps?
+☑️ At least 8 materials listed?
+☑️ 5 learning objectives specific to "${input.topic}"?
+☑️ NO two activities could be swapped without noticing?`;
+
+    console.log("🎓 Generating workshop for:", input.topic, "| Duration:", durationNum, "min | Age:", input.ageRange);
+    console.log("📚 Using game library with", topicMapping ? topicMapping.exampleGames.length : 0, "topic-specific examples");
+
+    // LOGGING PROMPTS FOR DEBUGGING
+    console.log("\n========== SYSTEM PROMPT ==========\n", systemPrompt, "\n===================================\n");
+    console.log("\n========== USER PROMPT ============\n", userPrompt, "\n===================================\n");
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.1", // Using GPT-5.1 with explicit LOW reasoning for speed
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 0.8,
-        max_tokens: 3000,
-    });
+        // temperature: 1, // Must be default/omitted for reasoning models
+        reasoning_effort: "low", // "low" = faster response, less deep thinking
+        max_completion_tokens: 16000,
+        response_format: { type: "json_object" },
+    } as any); // Cast to any because SDK might not have typing yet
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
@@ -169,14 +515,87 @@ Make every activity FUN, ENGAGING, and EDUCATIONAL!`;
     }
 
     try {
-        return JSON.parse(content) as WorkshopPlanData;
-    } catch {
-        // Try to extract JSON from the response
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]) as WorkshopPlanData;
+        const parsed = JSON.parse(content) as WorkshopPlanData;
+
+        // Ensure backward compatibility: populate timeline from schedule if needed
+        if (parsed.schedule && !parsed.timeline) {
+            parsed.timeline = parsed.schedule.map((s: ScheduleBlock) => s.activity);
         }
-        throw new Error("Failed to parse workshop plan JSON");
+
+        // Ensure timeline exists for backward compatibility
+        if (!parsed.timeline && parsed.schedule) {
+            parsed.timeline = parsed.schedule.map((s: ScheduleBlock) => ({
+                ...s.activity,
+                timeRange: s.activity.timeRange || `${s.startMinute}-${s.endMinute} دقيقة`,
+            }));
+        }
+
+        // ========== POST-GENERATION VALIDATION ==========
+        const validationIssues: string[] = [];
+
+        if (parsed.timeline && parsed.timeline.length > 0) {
+            // Check for repetitive activity titles
+            const titles = parsed.timeline.map(a => a.title.toLowerCase().replace(/[0-9]/g, '').trim());
+            const uniqueTitles = new Set(titles);
+            if (uniqueTitles.size < titles.length * 0.7) {
+                validationIssues.push("⚠️ Repetitive activity titles detected");
+            }
+
+            // Check for variety in game types
+            const gameTypes = parsed.timeline.map(a => (a as any).gameType).filter(Boolean);
+            const uniqueTypes = new Set(gameTypes);
+            if (uniqueTypes.size < 3) {
+                validationIssues.push(`⚠️ Low game type variety: only ${uniqueTypes.size} types (${Array.from(uniqueTypes).join(', ')})`);
+            }
+
+            // Check for similar descriptions (building tower/pyramid detection)
+            const descriptions = parsed.timeline.map(a => a.description.toLowerCase());
+            const buildingActivities = descriptions.filter(d =>
+                d.includes('برج') || d.includes('هرم') || d.includes('بناء') || d.includes('build')
+            );
+            if (buildingActivities.length > 1) {
+                validationIssues.push("⚠️ Multiple 'building' activities detected - may be repetitive");
+            }
+        }
+
+        // Check objectives count
+        if (parsed.objectives && parsed.objectives.length < 4) {
+            validationIssues.push(`⚠️ Only ${parsed.objectives.length} objectives (should be 5+)`);
+        }
+
+        // Check materials count
+        if (parsed.materials && parsed.materials.length < 5) {
+            validationIssues.push(`⚠️ Only ${parsed.materials.length} materials (should be 8+)`);
+        }
+
+        // Log validation results
+        if (validationIssues.length > 0) {
+            console.log("⚠️ QUALITY VALIDATION WARNINGS:");
+            validationIssues.forEach(issue => console.log("  ", issue));
+        } else {
+            console.log("✅ Quality validation passed - good variety detected");
+        }
+
+        console.log("✅ Workshop plan generated successfully with", parsed.timeline?.length || parsed.schedule?.length || 0, "activities");
+        return parsed;
+    } catch (parseError) {
+        console.error("❌ JSON Parse Error. Content preview:", content.substring(0, 500));
+
+        // Try to extract JSON from the response
+        const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) ||
+            content.match(/```\s*([\s\S]*?)\s*```/) ||
+            content.match(/\{[\s\S]*\}/);
+
+        if (jsonMatch) {
+            const jsonStr = jsonMatch[1] || jsonMatch[0];
+            try {
+                return JSON.parse(jsonStr) as WorkshopPlanData;
+            } catch {
+                console.error("Secondary parse also failed");
+            }
+        }
+
+        throw new Error(`Failed to parse workshop plan JSON: ${parseError}`);
     }
 }
 

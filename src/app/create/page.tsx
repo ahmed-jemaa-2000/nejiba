@@ -17,8 +17,8 @@ export interface CreatorState {
     topic: string;
 
     // Step 2: Workshop
-    duration: "30" | "45" | "60";
-    ageRange: "6-8" | "8-10" | "10-12" | "mixed";
+    duration: "45" | "60" | "90";
+    ageRange: "6-8" | "8-10" | "10-12" | "8-14" | "mixed";
     selectedMaterials: string[];
     workshopPlan: WorkshopPlanData | null;
 
@@ -40,8 +40,8 @@ export interface CreatorState {
 
 const INITIAL_STATE: CreatorState = {
     topic: "",
-    duration: "60",
-    ageRange: "8-10",
+    duration: "90",
+    ageRange: "8-14",
     selectedMaterials: [],
     workshopPlan: null,
     posterFormat: "facebook",
