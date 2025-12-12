@@ -29,8 +29,11 @@ export function validateWorkshopPlan(plan: any): ValidationResult {
     const errors: ValidationError[] = [];
     const warnings: ValidationError[] = [];
 
+    // STEP 0: Normalize the plan FIRST (extract from nested structures)
+    const normalized = normalizeWorkshopPlan(plan);
+
     // 1. Required top-level fields
-    if (!plan.title?.ar) {
+    if (!normalized.title?.ar) {
         errors.push({
             path: "title.ar",
             field: "عنوان الورشة بالعربية",
@@ -40,7 +43,7 @@ export function validateWorkshopPlan(plan: any): ValidationResult {
         });
     }
 
-    if (!plan.generalInfo) {
+    if (!normalized.generalInfo) {
         errors.push({
             path: "generalInfo",
             field: "المعلومات العامة",
@@ -49,7 +52,7 @@ export function validateWorkshopPlan(plan: any): ValidationResult {
         });
     }
 
-    if (!plan.timeline || !Array.isArray(plan.timeline)) {
+    if (!normalized.timeline || !Array.isArray(normalized.timeline)) {
         errors.push({
             path: "timeline",
             field: "الأنشطة",
@@ -60,7 +63,7 @@ export function validateWorkshopPlan(plan: any): ValidationResult {
     }
 
     // 2. Introduction validation (NEW)
-    if (!plan.introduction) {
+    if (!normalized.introduction) {
         warnings.push({
             path: "introduction",
             field: "المقدمة",
@@ -69,7 +72,7 @@ export function validateWorkshopPlan(plan: any): ValidationResult {
             suggestion: "أضف حقل introduction بثلاث جمل بسيطة"
         });
     } else {
-        if (!plan.introduction.phrase1 || !plan.introduction.phrase2 || !plan.introduction.phrase3) {
+        if (!normalized.introduction.phrase1 || !normalized.introduction.phrase2 || !normalized.introduction.phrase3) {
             warnings.push({
                 path: "introduction",
                 field: "المقدمة",
@@ -79,25 +82,25 @@ export function validateWorkshopPlan(plan: any): ValidationResult {
         }
     }
 
-    // 3. Validate each activity
-    plan.timeline.forEach((activity: any, index: number) => {
+    // 3. Validate each activity (now with normalized data)
+    normalized.timeline.forEach((activity: any, index: number) => {
         const activityErrors = validateActivity(activity, index);
         errors.push(...activityErrors.filter(e => e.severity === "error"));
         warnings.push(...activityErrors.filter(e => e.severity === "warning"));
     });
 
     // 4. Validate objectives
-    if (!plan.objectives || plan.objectives.length < 3) {
+    if (!normalized.objectives || normalized.objectives.length < 3) {
         warnings.push({
             path: "objectives",
             field: "الأهداف",
-            message: `عدد الأهداف قليل (${plan.objectives?.length || 0}) - يفضل 5 أهداف على الأقل`,
+            message: `عدد الأهداف قليل (${normalized.objectives?.length || 0}) - يفضل 5 أهداف على الأقل`,
             severity: "warning"
         });
     }
 
     // 5. Validate materials
-    if (!plan.materials || plan.materials.length < 5) {
+    if (!normalized.materials || normalized.materials.length < 5) {
         warnings.push({
             path: "materials",
             field: "المواد",
@@ -106,15 +109,135 @@ export function validateWorkshopPlan(plan: any): ValidationResult {
         });
     }
 
-    // 6. Attempt auto-fix for common issues
-    const fixedPlan = errors.length === 0 ? autoFixWorkshop(plan, warnings) : undefined;
-
+    // 6. Return the normalized (fixed) plan
     return {
         isValid: errors.length === 0,
         errors,
         warnings,
-        fixedPlan
+        fixedPlan: errors.length === 0 ? normalized : undefined
     };
+}
+
+/**
+ * Normalize workshop plan - extract fields from nested structures
+ * This handles both old flat format and new facilitatorScript format
+ */
+function normalizeWorkshopPlan(plan: any): any {
+    const normalized = JSON.parse(JSON.stringify(plan)); // Deep clone
+
+    // Generate introduction if missing
+    if (!normalized.introduction && normalized.title?.ar) {
+        const topic = normalized.title.ar.replace("ورشة: ", "").replace("ورشة ", "");
+        normalized.introduction = {
+            phrase1: `مرحباً أصدقائي! اليوم عندنا ورشة رائعة!`,
+            phrase2: `رح نتعلم عن ${topic} بطريقة ممتعة!`,
+            phrase3: `رح نلعب ألعاب ونصنع أشياء جميلة ونتعلم مهارات جديدة!`
+        };
+    }
+
+    // Fix objectives format (if array of strings, convert to objects)
+    if (normalized.objectives && Array.isArray(normalized.objectives)) {
+        normalized.objectives = normalized.objectives.map((obj: any) => {
+            if (typeof obj === "string") {
+                return { ar: obj, en: "" };
+            }
+            return obj;
+        });
+    }
+
+    // Normalize timeline activities
+    if (normalized.timeline) {
+        normalized.timeline = normalized.timeline.map((activity: any) => {
+            return normalizeActivity(activity);
+        });
+    }
+
+    return normalized;
+}
+
+/**
+ * Normalize a single activity - extract from facilitatorScript if needed
+ */
+function normalizeActivity(activity: any): any {
+    const normalized = { ...activity };
+    const script = activity.facilitatorScript;
+
+    // Extract description from various sources
+    if (!normalized.description) {
+        normalized.description = activity.description ||
+            script?.roomSetup ||
+            `نشاط ${activity.title || 'رائع'}`;
+    }
+
+    // Extract mainSteps from facilitatorScript
+    if (!normalized.mainSteps && script?.mainSteps) {
+        // If mainSteps is an array of step objects, extract the actions
+        if (Array.isArray(script.mainSteps)) {
+            normalized.mainSteps = script.mainSteps.map((step: any) => {
+                if (typeof step === 'string') return step;
+                return step.exactAction || step.facilitatorSays || step.action || String(step);
+            }).slice(0, 5);
+        }
+    }
+
+    // Extract whatYouNeed from materials or facilitatorScript
+    if (!normalized.whatYouNeed) {
+        normalized.whatYouNeed = activity.materials?.map((m: any) =>
+            typeof m === 'string' ? m : m.item
+        ) || script?.materialsReady || [];
+    }
+
+    // Extract visualCues
+    if (!normalized.visualCues || normalized.visualCues.length === 0) {
+        if (script?.mainSteps) {
+            normalized.visualCues = script.mainSteps.map((step: any) =>
+                step.visualCue || step.exactAction || ''
+            ).filter(Boolean).slice(0, 4);
+        }
+        if (!normalized.visualCues || normalized.visualCues.length < 3) {
+            normalized.visualCues = ["عرض المواد أمام الأطفال", "تمثيل الخطوة الأولى", "الإشارة للسبورة", "رفع اليد للتشجيع"];
+        }
+    }
+
+    // Extract spokenPhrases
+    if (!normalized.spokenPhrases || normalized.spokenPhrases.length === 0) {
+        if (script?.mainSteps) {
+            normalized.spokenPhrases = script.mainSteps.map((step: any) =>
+                step.facilitatorSays || ''
+            ).filter(Boolean);
+        }
+        if (script?.openingPhrase && normalized.spokenPhrases) {
+            normalized.spokenPhrases = [script.openingPhrase, ...normalized.spokenPhrases];
+        }
+        if (!normalized.spokenPhrases || normalized.spokenPhrases.length < 3) {
+            normalized.spokenPhrases = ["يلا نبدأ!", "رائع! أحسنتم!", "من يريد أن يجرب؟", "ممتاز!"];
+        }
+    }
+
+    // Ensure other required fields have defaults
+    if (!normalized.lifeSkillsFocus || normalized.lifeSkillsFocus.length === 0) {
+        normalized.lifeSkillsFocus = ["creativity", "teamwork", "confidence"];
+    }
+
+    if (!normalized.confidenceBuildingMoment) {
+        normalized.confidenceBuildingMoment = activity.confidenceBuildingMoment ||
+            "عندما يكمل الطفل النشاط ويسمع التصفيق من زملائه";
+    }
+
+    if (!normalized.whyItMatters) {
+        normalized.whyItMatters = activity.whyItMatters ||
+            "يساعد هذا النشاط الطفل على تطوير مهاراته وبناء ثقته بنفسه";
+    }
+
+    if (!normalized.energyLevel) {
+        normalized.energyLevel = "medium";
+    }
+
+    if (!normalized.activityType) {
+        normalized.activityType = activity.blockType || "نشاط متنوع";
+    }
+
+    return normalized;
 }
 
 /**

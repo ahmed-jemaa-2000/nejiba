@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { WorkshopInput } from "@/lib/ai";
-import { exportWorkshopPromptsForUI } from "@/lib/ai/openai";
 import { getMaterialNamesForPrompt } from "@/lib/workshop/materials";
+import { exportPDFReadyPrompt, PDF_AGE_DESCRIPTORS } from "@/lib/ai/prompts/pdfReadyWorkshopPrompt";
 
-interface WorkshopPromptsRequest extends WorkshopInput {
+interface WorkshopPromptsRequest {
+    topic: string;
+    duration?: string;
+    ageRange?: string;
     selectedMaterials?: string[];
-    format?: "text" | "json"; // NEW: Support JSON format for external use
 }
 
+/**
+ * POST /api/ai/workshop-prompts
+ * 
+ * Exports PDF-ready prompts for use in ChatGPT UI.
+ * Includes kidsBenefits, activityBenefits, and parentTips in the schema.
+ */
 export async function POST(request: NextRequest) {
     try {
         const body: WorkshopPromptsRequest = await request.json();
@@ -19,24 +26,49 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (!["30", "45", "60", "90", "120"].includes(body.duration)) {
-            body.duration = "90";
-        }
+        // Default values
+        const duration = body.duration || "90";
+        const ageRange = body.ageRange || "8-10";
+        const durationMinutes = parseInt(duration);
 
-        if (!["6-8", "8-10", "10-12", "8-14", "mixed"].includes(body.ageRange)) {
-            body.ageRange = "8-10";
-        }
+        // Get age descriptors
+        const ageInfo = PDF_AGE_DESCRIPTORS[ageRange] || PDF_AGE_DESCRIPTORS["8-10"];
 
+        // Get material names if provided
         const materialNames = body.selectedMaterials
             ? getMaterialNamesForPrompt(body.selectedMaterials)
-            : [];
+            : undefined;
 
-        const prompts = exportWorkshopPromptsForUI({
-            ...body,
-            selectedMaterialNames: materialNames,
-        }, body.format || "text");
+        // Build PDF-ready prompts with kidsBenefits
+        const promptExport = exportPDFReadyPrompt({
+            topic: body.topic,
+            durationMinutes,
+            ageRange,
+            ageDescriptionAr: ageInfo.ar,
+            ageDescriptionEn: ageInfo.en,
+            selectedMaterials: materialNames
+        });
 
-        return NextResponse.json(prompts);
+        return NextResponse.json({
+            systemPrompt: promptExport.systemPrompt,
+            userPrompt: promptExport.userPrompt,
+            combined: promptExport.fullPromptForChatGPT,
+            jsonSchema: promptExport.jsonSchemaExample,
+            // Helpful metadata
+            info: {
+                topic: body.topic,
+                duration: `${durationMinutes} دقيقة`,
+                ageGroup: ageInfo.ar,
+                materials: materialNames?.length || 0,
+                features: [
+                    "kidsBenefits (5 developmental areas)",
+                    "activityBenefits per activity",
+                    "parentTips (4+ tips)",
+                    "longTermImpact",
+                    "facilitatorScript with exact phrases"
+                ]
+            }
+        });
     } catch (error) {
         console.error("Workshop prompts error:", error);
         const message = error instanceof Error ? error.message : "Failed to build prompts";

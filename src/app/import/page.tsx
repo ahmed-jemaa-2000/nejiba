@@ -15,7 +15,7 @@ import { WorkshopPreview } from "@/components/import/WorkshopPreview";
 import { validateWorkshopPlan, validateJsonSyntax } from "@/lib/validation/workshopValidator";
 import { workshopStorage } from "@/lib/storage/workshopStorage";
 import { PDFDownloadLink } from "@react-pdf/renderer";
-import { EnhancedWorkshopPDF } from "@/components/pdf/EnhancedWorkshopPDF";
+import { PremiumWorkshopPDF } from "@/components/pdf/PremiumWorkshopPDF";
 import type { WorkshopPlanData } from "@/lib/ai/providers/base";
 import type { ValidationResult } from "@/lib/validation/workshopValidator";
 
@@ -253,8 +253,8 @@ export default function ImportPage() {
                                         💾 حفظ في المتصفح
                                     </Button>
                                     <PDFDownloadLink
-                                        document={<EnhancedWorkshopPDF plan={parsedWorkshop} />}
-                                        fileName={`workshop-${parsedWorkshop.title.ar.replace(/\s+/g, '-')}-enhanced.pdf`}
+                                        document={<PremiumWorkshopPDF plan={parsedWorkshop} />}
+                                        fileName={`workshop-${parsedWorkshop.title.ar.replace(/\s+/g, '-')}-premium.pdf`}
                                     >
                                         {({ loading }) => (
                                             <Button variant="gradient" loading={loading}>

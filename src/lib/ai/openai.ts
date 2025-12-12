@@ -14,6 +14,7 @@
 import OpenAI from "openai";
 import { buildActivityExamplesPrompt } from "./activityLibrary";
 import { buildWorkshopSystemPrompt, buildWorkshopUserPrompt, buildWorkshopJSONSystemPrompt, buildWorkshopJSONUserPrompt, WorkshopPromptConfig } from "./prompts/workshopSystemPrompt";
+import { buildPDFReadySystemPrompt, buildPDFReadyUserPrompt, PDF_AGE_DESCRIPTORS } from "./prompts/pdfReadyWorkshopPrompt";
 import {
     validateActivityDiversity,
     validateEnergyBalance,
@@ -283,16 +284,37 @@ export async function generateWorkshopPlan(input: WorkshopInput): Promise<Worksh
         materialsContext
     };
 
-    // Generate prompts using new system
-    const systemPrompt = buildWorkshopSystemPrompt(promptConfig);
-    const userPrompt = buildWorkshopUserPrompt(input.topic, durationNum, ageInfo);
+    // ============================================
+    // NEW: Use PDF-Ready prompts with kidsBenefits
+    // ============================================
+    const usePDFReadyPrompts = true; // Enable new prompt system
 
-    console.log("🎓 V3.0 Generating DIVERSE workshop for:", input.topic, "| Duration:", durationNum, "min | Age:", input.ageRange);
-    console.log("✨ NEW: Clarity-first (3-5 steps), diverse activity types, life skills focused");
+    let systemPrompt: string;
+    let userPrompt: string;
 
-    // LOGGING PROMPTS FOR DEBUGGING
-    console.log("\n========== SYSTEM PROMPT ==========\n", systemPrompt, "\n===================================\n");
-    console.log("\n========== USER PROMPT ============\n", userPrompt, "\n===================================\n");
+    if (usePDFReadyPrompts) {
+        // NEW: PDF-ready prompts with kidsBenefits, activityBenefits, parentTips
+        const pdfConfig = {
+            topic: input.topic,
+            durationMinutes: durationNum,
+            ageRange: input.ageRange,
+            ageDescriptionAr: ageInfo.ar,
+            ageDescriptionEn: ageInfo.en,
+            selectedMaterials: input.selectedMaterialNames
+        };
+        systemPrompt = buildPDFReadySystemPrompt(pdfConfig);
+        userPrompt = buildPDFReadyUserPrompt(pdfConfig);
+        console.log("🌟 Using PDF-Ready prompts WITH kidsBenefits, activityBenefits, parentTips");
+    } else {
+        // Legacy prompts (no kidsBenefits)
+        systemPrompt = buildWorkshopSystemPrompt(promptConfig);
+        userPrompt = buildWorkshopUserPrompt(input.topic, durationNum, ageInfo);
+    }
+
+    console.log("🎓 V3.0 Generating workshop for:", input.topic, "| Duration:", durationNum, "min | Age:", input.ageRange);
+
+    // DEBUG: Log prompts (remove in production)
+    // console.log("\n========== SYSTEM PROMPT ==========\n", systemPrompt.substring(0, 500), "\n... [truncated]\n");
 
     // Model options (ranked by value for this use case):
     // 1. "gpt-5-mini"  - $0.006/workshop - BEST VALUE ✅
@@ -308,161 +330,161 @@ export async function generateWorkshopPlan(input: WorkshopInput): Promise<Worksh
     for (let attempt = 0; attempt < 2; attempt++) {
         try {
             const completion = await openai.chat.completions.create({
-        model: DEFAULT_OPENAI_MODEL, // Allow override via OPENAI_MODEL
-        messages: attempt === 0
-            ? baseMessages
-            : [
-                ...baseMessages,
-                {
-                    role: "user",
-                    content:
-                        `Your previous JSON failed mandatory validation. Fix ALL issues below and regenerate the FULL workshop plan.\n` +
-                        `Return ONLY valid JSON.\n\nIssues:\n${lastFailure?.message}`
-                }
-            ],
-        max_completion_tokens: 24000,
-        response_format: { type: "json_object" },
-        temperature: 0.8,
-    });
-
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-        console.error("❌ OpenAI Activity Gen Empty:", JSON.stringify(completion, null, 2));
-        throw new Error("No response from OpenAI");
-    }
-
-    const parsed = parseJsonFromModel<WorkshopPlanData>(content, false);
-
-        // Ensure objectives exists (fallback from learningObjectives)
-        if (!parsed.objectives && parsed.learningObjectives) {
-            parsed.objectives = parsed.learningObjectives.map(obj => ({
-                ar: obj,
-                en: ""
-            }));
-        } else if (!parsed.objectives) {
-            parsed.objectives = [];
-        }
-
-        // Ensure backward compatibility: populate timeline from schedule if needed
-        if (parsed.schedule && !parsed.timeline) {
-            parsed.timeline = parsed.schedule.map((s: ScheduleBlock) => s.activity);
-        }
-
-        // Ensure timeline exists for backward compatibility
-        if (!parsed.timeline && parsed.schedule) {
-            parsed.timeline = parsed.schedule.map((s: ScheduleBlock) => ({
-                ...s.activity,
-                timeRange: s.activity.timeRange || `${s.startMinute}-${s.endMinute} دقيقة`,
-            }));
-        }
-
-        // ========== V3.0 MANDATORY FIELD VALIDATION ==========
-        // Reject workshop if critical fields are missing - FORCE AI to use detailed format
-        console.log("🔍 V3.0 Validating mandatory fields...");
-
-        const validationErrors = getMandatoryWorkshopValidationErrors(parsed);
-
-        // If validation errors exist, throw error and force regeneration
-        if (validationErrors.length > 0) {
-            console.error("❌ V3.0 Validation FAILED - Missing required fields:");
-            validationErrors.forEach(err => console.error(`  - ${err}`));
-
-            throw new Error(
-                `Generated workshop missing required V3 fields:\n${validationErrors.join('\n')}\n\n` +
-                `The AI must include: activityType, mainSteps (3-5 items), lifeSkillsFocus, ` +
-                `confidenceBuildingMoment, visualCues (3+), spokenPhrases (3+), whatYouNeed, whyItMatters, ` +
-                `energyLevel, complexityLevel, estimatedSteps for EVERY activity.`
-            );
-        }
-
-        console.log("✅ V3.0 Mandatory fields validation passed!");
-
-        // ========== V3.0 POST-GENERATION VALIDATION (QUALITY WARNINGS) ==========
-        const validationIssues: string[] = [];
-
-        if (parsed.timeline && parsed.timeline.length > 0) {
-            // V3.0: Check activity type diversity (NEW - most important!)
-            const activityTypes = parsed.timeline
-                .map(a => a.activityType)
-                .filter(Boolean) as ActivityType[];
-
-            if (activityTypes.length > 0) {
-                const diversityResult = validateActivityDiversity(activityTypes);
-                if (!diversityResult.isValid) {
-                    validationIssues.push(diversityResult.message);
-                } else {
-                    console.log(diversityResult.message);
-                }
-            }
-
-            // V3.0: Check energy balance (NEW)
-            if (activityTypes.length > 0) {
-                const energyResult = validateEnergyBalance(activityTypes);
-                if (!energyResult.isValid) {
-                    validationIssues.push(energyResult.message);
-                } else {
-                    console.log(energyResult.message);
-                }
-            }
-
-            // V3.0: Check step counts (CLARITY VALIDATION - NEW!)
-            parsed.timeline.forEach((activity, i) => {
-                const stepCount = activity.mainSteps?.length || activity.instructions?.length || 0;
-                if (stepCount > 6) {
-                    validationIssues.push(`⚠️ Activity ${i + 1} "${activity.title}" has ${stepCount} steps (should be 3-5 for clarity)`);
-                }
-                if (!activity.lifeSkillsFocus || activity.lifeSkillsFocus.length === 0) {
-                    validationIssues.push(`⚠️ Activity ${i + 1} missing life skills focus`);
-                }
-                if (!activity.confidenceBuildingMoment) {
-                    validationIssues.push(`⚠️ Activity ${i + 1} missing confidence-building moment`);
-                }
+                model: DEFAULT_OPENAI_MODEL, // Allow override via OPENAI_MODEL
+                messages: attempt === 0
+                    ? baseMessages
+                    : [
+                        ...baseMessages,
+                        {
+                            role: "user",
+                            content:
+                                `Your previous JSON failed mandatory validation. Fix ALL issues below and regenerate the FULL workshop plan.\n` +
+                                `Return ONLY valid JSON.\n\nIssues:\n${lastFailure?.message}`
+                        }
+                    ],
+                max_completion_tokens: 24000,
+                response_format: { type: "json_object" },
+                temperature: 0.8,
             });
 
-            // V3.0: Check for creative/making activities (NEW REQUIREMENT)
-            const creativeTypes = activityTypes.filter(t =>
-                t === "صنع وإبداع" || t === "فن وتعبير"
-            );
-            if (creativeTypes.length === 0) {
-                validationIssues.push(`⚠️ NO creative making activities (required at least 1)`);
+            const content = completion.choices[0]?.message?.content;
+            if (!content) {
+                console.error("❌ OpenAI Activity Gen Empty:", JSON.stringify(completion, null, 2));
+                throw new Error("No response from OpenAI");
+            }
+
+            const parsed = parseJsonFromModel<WorkshopPlanData>(content, false);
+
+            // Ensure objectives exists (fallback from learningObjectives)
+            if (!parsed.objectives && parsed.learningObjectives) {
+                parsed.objectives = parsed.learningObjectives.map(obj => ({
+                    ar: obj,
+                    en: ""
+                }));
+            } else if (!parsed.objectives) {
+                parsed.objectives = [];
+            }
+
+            // Ensure backward compatibility: populate timeline from schedule if needed
+            if (parsed.schedule && !parsed.timeline) {
+                parsed.timeline = parsed.schedule.map((s: ScheduleBlock) => s.activity);
+            }
+
+            // Ensure timeline exists for backward compatibility
+            if (!parsed.timeline && parsed.schedule) {
+                parsed.timeline = parsed.schedule.map((s: ScheduleBlock) => ({
+                    ...s.activity,
+                    timeRange: s.activity.timeRange || `${s.startMinute}-${s.endMinute} دقيقة`,
+                }));
+            }
+
+            // ========== V3.0 MANDATORY FIELD VALIDATION ==========
+            // Reject workshop if critical fields are missing - FORCE AI to use detailed format
+            console.log("🔍 V3.0 Validating mandatory fields...");
+
+            const validationErrors = getMandatoryWorkshopValidationErrors(parsed);
+
+            // If validation errors exist, throw error and force regeneration
+            if (validationErrors.length > 0) {
+                console.error("❌ V3.0 Validation FAILED - Missing required fields:");
+                validationErrors.forEach(err => console.error(`  - ${err}`));
+
+                throw new Error(
+                    `Generated workshop missing required V3 fields:\n${validationErrors.join('\n')}\n\n` +
+                    `The AI must include: activityType, mainSteps (3-5 items), lifeSkillsFocus, ` +
+                    `confidenceBuildingMoment, visualCues (3+), spokenPhrases (3+), whatYouNeed, whyItMatters, ` +
+                    `energyLevel, complexityLevel, estimatedSteps for EVERY activity.`
+                );
+            }
+
+            console.log("✅ V3.0 Mandatory fields validation passed!");
+
+            // ========== V3.0 POST-GENERATION VALIDATION (QUALITY WARNINGS) ==========
+            const validationIssues: string[] = [];
+
+            if (parsed.timeline && parsed.timeline.length > 0) {
+                // V3.0: Check activity type diversity (NEW - most important!)
+                const activityTypes = parsed.timeline
+                    .map(a => a.activityType)
+                    .filter(Boolean) as ActivityType[];
+
+                if (activityTypes.length > 0) {
+                    const diversityResult = validateActivityDiversity(activityTypes);
+                    if (!diversityResult.isValid) {
+                        validationIssues.push(diversityResult.message);
+                    } else {
+                        console.log(diversityResult.message);
+                    }
+                }
+
+                // V3.0: Check energy balance (NEW)
+                if (activityTypes.length > 0) {
+                    const energyResult = validateEnergyBalance(activityTypes);
+                    if (!energyResult.isValid) {
+                        validationIssues.push(energyResult.message);
+                    } else {
+                        console.log(energyResult.message);
+                    }
+                }
+
+                // V3.0: Check step counts (CLARITY VALIDATION - NEW!)
+                parsed.timeline.forEach((activity, i) => {
+                    const stepCount = activity.mainSteps?.length || activity.instructions?.length || 0;
+                    if (stepCount > 6) {
+                        validationIssues.push(`⚠️ Activity ${i + 1} "${activity.title}" has ${stepCount} steps (should be 3-5 for clarity)`);
+                    }
+                    if (!activity.lifeSkillsFocus || activity.lifeSkillsFocus.length === 0) {
+                        validationIssues.push(`⚠️ Activity ${i + 1} missing life skills focus`);
+                    }
+                    if (!activity.confidenceBuildingMoment) {
+                        validationIssues.push(`⚠️ Activity ${i + 1} missing confidence-building moment`);
+                    }
+                });
+
+                // V3.0: Check for creative/making activities (NEW REQUIREMENT)
+                const creativeTypes = activityTypes.filter(t =>
+                    t === "صنع وإبداع" || t === "فن وتعبير"
+                );
+                if (creativeTypes.length === 0) {
+                    validationIssues.push(`⚠️ NO creative making activities (required at least 1)`);
+                } else {
+                    console.log(`✅ Good: ${creativeTypes.length} creative/making activities found`);
+                }
+
+                // Check for repetitive activity titles (keep from old system)
+                const titles = parsed.timeline.map(a => a.title.toLowerCase().replace(/[0-9]/g, '').trim());
+                const uniqueTitles = new Set(titles);
+                if (uniqueTitles.size < titles.length * 0.7) {
+                    validationIssues.push("⚠️ Repetitive activity titles detected");
+                }
+            }
+
+            // Check objectives count
+            if (parsed.objectives && parsed.objectives.length < 4) {
+                validationIssues.push(`⚠️ Only ${parsed.objectives.length} objectives (should be 5+)`);
+            }
+
+            // Check materials count
+            if (parsed.materials && parsed.materials.length < 5) {
+                validationIssues.push(`⚠️ Only ${parsed.materials.length} materials (should be 8+)`);
+            }
+
+            // Log validation results
+            if (validationIssues.length > 0) {
+                console.log("\n⚠️ V3.0 QUALITY VALIDATION WARNINGS:");
+                validationIssues.forEach(issue => console.log("  ", issue));
             } else {
-                console.log(`✅ Good: ${creativeTypes.length} creative/making activities found`);
+                console.log("\n✅ V3.0 Quality validation passed - excellent diversity and clarity!");
             }
 
-            // Check for repetitive activity titles (keep from old system)
-            const titles = parsed.timeline.map(a => a.title.toLowerCase().replace(/[0-9]/g, '').trim());
-            const uniqueTitles = new Set(titles);
-            if (uniqueTitles.size < titles.length * 0.7) {
-                validationIssues.push("⚠️ Repetitive activity titles detected");
-            }
+            console.log("✅ Workshop plan generated successfully with", parsed.timeline?.length || parsed.schedule?.length || 0, "activities");
+            return parsed;
+        } catch (e) {
+            lastFailure = e instanceof Error ? e : new Error(String(e));
+            console.error(`Workshop generation attempt ${attempt + 1} failed`, lastFailure);
+            if (attempt === 0) continue;
+            throw lastFailure;
         }
-
-        // Check objectives count
-        if (parsed.objectives && parsed.objectives.length < 4) {
-            validationIssues.push(`⚠️ Only ${parsed.objectives.length} objectives (should be 5+)`);
-        }
-
-        // Check materials count
-        if (parsed.materials && parsed.materials.length < 5) {
-            validationIssues.push(`⚠️ Only ${parsed.materials.length} materials (should be 8+)`);
-        }
-
-        // Log validation results
-        if (validationIssues.length > 0) {
-            console.log("\n⚠️ V3.0 QUALITY VALIDATION WARNINGS:");
-            validationIssues.forEach(issue => console.log("  ", issue));
-        } else {
-            console.log("\n✅ V3.0 Quality validation passed - excellent diversity and clarity!");
-        }
-
-        console.log("✅ Workshop plan generated successfully with", parsed.timeline?.length || parsed.schedule?.length || 0, "activities");
-        return parsed;
-    } catch (e) {
-        lastFailure = e instanceof Error ? e : new Error(String(e));
-        console.error(`Workshop generation attempt ${attempt + 1} failed`, lastFailure);
-        if (attempt === 0) continue;
-        throw lastFailure;
-    }
     }
 
     throw lastFailure || new Error("Failed to generate workshop plan");

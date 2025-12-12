@@ -6,7 +6,7 @@ import { ActivityRegenerator } from "@/components/ActivityRegenerator";
 import type { WorkshopPlanData, WorkshopInput, WorkshopActivity } from "@/app/workshop/page";
 import type { WorkshopPlanData as BaseWorkshopPlanData } from "@/lib/ai/providers/base";
 import { PDFDownloadLink } from "@react-pdf/renderer";
-import { EnhancedWorkshopPDF } from "@/components/pdf/EnhancedWorkshopPDF";
+import { PremiumWorkshopPDF } from "@/components/pdf/PremiumWorkshopPDF";
 
 interface WorkshopPlanProps {
     plan: WorkshopPlanData;
@@ -67,8 +67,8 @@ export function WorkshopPlan({
                         </Button>
                         {isClient && (
                             <PDFDownloadLink
-                                document={<EnhancedWorkshopPDF plan={plan as unknown as BaseWorkshopPlanData} />}
-                                fileName={`workshop-${input.topic.replace(/\s+/g, '-')}-enhanced.pdf`}
+                                document={<PremiumWorkshopPDF plan={plan as unknown as BaseWorkshopPlanData} />}
+                                fileName={`workshop-${input.topic.replace(/\s+/g, '-')}-premium.pdf`}
                             >
                                 {({ blob, url, loading, error }) => (
                                     <Button variant="gradient" loading={loading}>
@@ -220,6 +220,104 @@ export function WorkshopPlan({
                     </div>
                 )}
             </Section>
+
+            {/* Kids Benefits Section (NEW) */}
+            {(plan as any).kidsBenefits && (
+                <Section title="🌟 فوائد الورشة للأطفال" subtitle="Kids Benefits">
+                    {/* Summary */}
+                    {(plan as any).kidsBenefits.summaryAr && (
+                        <div className="rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 p-4 text-center mb-6 border border-indigo-200">
+                            <p className="text-lg font-medium text-indigo-800">
+                                {(plan as any).kidsBenefits.summaryAr}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* 5 Developmental Areas Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                        {/* Cognitive */}
+                        {(plan as any).kidsBenefits.cognitive && (
+                            <BenefitCard
+                                icon="🧠"
+                                title={(plan as any).kidsBenefits.cognitive.title || "التطور الذهني"}
+                                skills={(plan as any).kidsBenefits.cognitive.skills || []}
+                                example={(plan as any).kidsBenefits.cognitive.example}
+                                color="blue"
+                            />
+                        )}
+
+                        {/* Emotional */}
+                        {(plan as any).kidsBenefits.emotional && (
+                            <BenefitCard
+                                icon="❤️"
+                                title={(plan as any).kidsBenefits.emotional.title || "النمو العاطفي"}
+                                skills={(plan as any).kidsBenefits.emotional.skills || []}
+                                example={(plan as any).kidsBenefits.emotional.example}
+                                color="pink"
+                            />
+                        )}
+
+                        {/* Social */}
+                        {(plan as any).kidsBenefits.social && (
+                            <BenefitCard
+                                icon="🤝"
+                                title={(plan as any).kidsBenefits.social.title || "المهارات الاجتماعية"}
+                                skills={(plan as any).kidsBenefits.social.skills || []}
+                                example={(plan as any).kidsBenefits.social.example}
+                                color="green"
+                            />
+                        )}
+
+                        {/* Physical */}
+                        {(plan as any).kidsBenefits.physical && (
+                            <BenefitCard
+                                icon="💪"
+                                title={(plan as any).kidsBenefits.physical.title || "التطور الجسدي"}
+                                skills={(plan as any).kidsBenefits.physical.skills || []}
+                                example={(plan as any).kidsBenefits.physical.example}
+                                color="amber"
+                            />
+                        )}
+
+                        {/* Character */}
+                        {(plan as any).kidsBenefits.character && (
+                            <BenefitCard
+                                icon="⭐"
+                                title={(plan as any).kidsBenefits.character.title || "بناء الشخصية"}
+                                skills={(plan as any).kidsBenefits.character.skills || []}
+                                example={(plan as any).kidsBenefits.character.example}
+                                color="purple"
+                            />
+                        )}
+                    </div>
+
+                    {/* Parent Tips */}
+                    {(plan as any).kidsBenefits.parentTips && (plan as any).kidsBenefits.parentTips.length > 0 && (
+                        <div className="rounded-xl bg-green-50 border-2 border-green-400 p-4 mb-4">
+                            <h4 className="text-lg font-bold text-green-700 mb-3 text-center">
+                                👨‍👩‍👧 نصائح للأهل
+                            </h4>
+                            <ul className="space-y-2">
+                                {(plan as any).kidsBenefits.parentTips.map((tip: string, i: number) => (
+                                    <li key={i} className="flex gap-2 text-green-700">
+                                        <span className="font-bold">✓</span>
+                                        <span>{tip}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {/* Long-term Impact */}
+                    {(plan as any).kidsBenefits.longTermImpact && (
+                        <div className="rounded-xl bg-slate-900 p-4 text-center">
+                            <p className="text-white font-medium">
+                                🚀 {(plan as any).kidsBenefits.longTermImpact}
+                            </p>
+                        </div>
+                    )}
+                </Section>
+            )}
 
         </div>
     );
@@ -551,6 +649,50 @@ function TipCard({ label, text, color }: { label: string; text: string; color: "
         <div className={`rounded-xl border px-3 py-2 text-sm ${palette[color]}`}>
             <p className="font-semibold">{label}</p>
             <p className="text-sm">{text}</p>
+        </div>
+    );
+}
+
+function BenefitCard({
+    icon,
+    title,
+    skills,
+    example,
+    color,
+}: {
+    icon: string;
+    title: string;
+    skills: string[];
+    example?: string;
+    color: "blue" | "pink" | "green" | "amber" | "purple";
+}) {
+    const colorMap = {
+        blue: "bg-blue-50 border-blue-200 text-blue-700",
+        pink: "bg-pink-50 border-pink-200 text-pink-700",
+        green: "bg-green-50 border-green-200 text-green-700",
+        amber: "bg-amber-50 border-amber-200 text-amber-700",
+        purple: "bg-purple-50 border-purple-200 text-purple-700",
+    } as const;
+
+    return (
+        <div className={`rounded-xl border-2 p-4 ${colorMap[color]}`}>
+            <div className="text-center mb-3">
+                <span className="text-3xl">{icon}</span>
+                <h4 className="font-bold mt-2">{title}</h4>
+            </div>
+            <ul className="space-y-1 text-sm">
+                {skills.map((skill, i) => (
+                    <li key={i} className="flex gap-2">
+                        <span>•</span>
+                        <span>{skill}</span>
+                    </li>
+                ))}
+            </ul>
+            {example && (
+                <p className="mt-3 text-xs italic opacity-80 border-t pt-2 border-current/20">
+                    💡 {example}
+                </p>
+            )}
         </div>
     );
 }

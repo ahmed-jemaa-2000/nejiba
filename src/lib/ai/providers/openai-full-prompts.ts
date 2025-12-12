@@ -7,7 +7,7 @@
  */
 
 import OpenAI from "openai";
-import { buildGameExamplesPrompt, ANTI_REPETITION_RULES, getTopicGames } from "./gameLibrary";
+import { buildGameExamplesPrompt, ANTI_REPETITION_RULES, getTopicGames } from "../gameLibrary";
 
 // Initialize OpenAI client
 const openai = new OpenAI({

@@ -117,3 +117,39 @@ export async function enhancePosterPrompt(input: import("./providers/base").Post
     const provider = getAIProvider();
     return provider.enhancePosterPrompt(input);
 }
+
+// ============================================================================
+// PDF-READY PROMPT EXPORT (NEW)
+// ============================================================================
+
+/**
+ * Export PDF-ready workshop prompts for ChatGPT
+ * 
+ * These functions generate standalone prompts optimized for:
+ * - Professional PDF output
+ * - Facilitator scripts with exact timing
+ * - Detailed step-by-step instructions
+ * 
+ * @example
+ * const { fullPromptForChatGPT } = exportPDFReadyPrompt({
+ *   topic: "الثقة بالنفس",
+ *   durationMinutes: 90,
+ *   ageRange: "8-10",
+ *   ageDescriptionAr: "8-10 سنة",
+ *   ageDescriptionEn: "8-10 years old"
+ * });
+ * // Copy fullPromptForChatGPT to ChatGPT GPT-5.2
+ */
+export {
+    exportPDFReadyPrompt,
+    quickExportPrompt,
+    buildPDFReadySystemPrompt,
+    buildPDFReadyUserPrompt,
+    PDF_AGE_DESCRIPTORS,
+    type PDFReadyPromptExport,
+    type PDFReadyPromptConfig,
+    type PDFReadyWorkshopPlan,
+    type PDFReadyActivity,
+    type PDFReadyStep,
+    type PDFReadyMaterial,
+} from "./prompts/pdfReadyWorkshopPrompt";
