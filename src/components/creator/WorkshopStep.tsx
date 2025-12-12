@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button, Card, Select } from "@/components/ui";
+import { Button, Card, Select, useToast } from "@/components/ui";
 import { WorkshopPlan } from "@/components/WorkshopPlan";
 import {
     MATERIALS_LIBRARY,
@@ -50,6 +50,13 @@ export function WorkshopStep({
     const [error, setError] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [expandedCategory, setExpandedCategory] = useState<string | null>("basic");
+    const [promptPreview, setPromptPreview] = useState<{ systemPrompt: string; userPrompt: string } | null>(null);
+    const [isPromptOpen, setIsPromptOpen] = useState(false);
+    const [isPromptLoading, setIsPromptLoading] = useState(false);
+    const [jsonPromptPreview, setJsonPromptPreview] = useState<{ systemPrompt: string; userPrompt: string } | null>(null);
+    const [isJsonPromptOpen, setIsJsonPromptOpen] = useState(false);
+    const [isJsonPromptLoading, setIsJsonPromptLoading] = useState(false);
+    const { showToast } = useToast();
 
     // Auto-suggest materials based on topic
     useEffect(() => {
@@ -78,6 +85,78 @@ export function WorkshopStep({
         } else {
             // Select all from this category
             updateState({ selectedMaterials: [...new Set([...current, ...categoryMaterials])] });
+        }
+    };
+
+    const previewPrompts = async () => {
+        if (!state.topic) return;
+
+        setIsPromptLoading(true);
+        try {
+            const response = await fetch("/api/ai/workshop-prompts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    topic: state.topic,
+                    duration: state.duration,
+                    ageRange: state.ageRange,
+                    selectedMaterials: state.selectedMaterials,
+                }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to build prompts");
+            }
+
+            setPromptPreview(data);
+            setIsPromptOpen(true);
+        } catch (e) {
+            const message = e instanceof Error ? e.message : "Failed to build prompts";
+            showToast(message, "error");
+        } finally {
+            setIsPromptLoading(false);
+        }
+    };
+
+    const previewJsonPrompts = async () => {
+        if (!state.topic) return;
+
+        setIsJsonPromptLoading(true);
+        try {
+            const response = await fetch("/api/ai/workshop-prompts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    topic: state.topic,
+                    duration: state.duration,
+                    ageRange: state.ageRange,
+                    selectedMaterials: state.selectedMaterials,
+                    format: "json", // Request JSON format
+                }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to build JSON prompts");
+            }
+
+            setJsonPromptPreview(data);
+            setIsJsonPromptOpen(true);
+        } catch (e) {
+            const message = e instanceof Error ? e.message : "Failed to build JSON prompts";
+            showToast(message, "error");
+        } finally {
+            setIsJsonPromptLoading(false);
+        }
+    };
+
+    const copyToClipboard = async (text: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            showToast("تم نسخ البرومبت", "success");
+        } catch {
+            showToast("فشل نسخ البرومبت", "error");
         }
     };
 
@@ -295,7 +374,13 @@ export function WorkshopStep({
                     )}
 
                     {/* Generate Button */}
-                    <div className="mt-6 pt-4 border-t border-border">
+                    <div className="mt-6 pt-4 border-t border-border flex flex-col gap-2">
+                        <Button onClick={previewPrompts} loading={isPromptLoading} fullWidth variant="secondary">
+                            ªîëSî õë"ë.ð¦ë^ë% (Prompt) ï÷ë. õë"©úë^¸
+                        </Button>
+                        <Button onClick={previewJsonPrompts} loading={isJsonPromptLoading} fullWidth variant="secondary">
+                            📋 معاينة JSON Prompts للاستخدام في ChatGPT
+                        </Button>
                         <Button onClick={generatePlan} loading={isGenerating} fullWidth variant="gradient">
                             ✨ إنشاء خطة الورشة المفصّلة
                         </Button>
@@ -344,6 +429,124 @@ export function WorkshopStep({
                         </div>
                     </Card>
                 </>
+            )}
+
+            {isPromptOpen && promptPreview && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <Card variant="glass" padding="lg" className="w-full max-w-3xl max-h-[90vh] overflow-auto">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-bold text-foreground">Prompt Preview</h3>
+                            <Button variant="ghost" size="sm" onClick={() => setIsPromptOpen(false)}>
+                                إغلاق
+                            </Button>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold text-foreground">System Prompt</h4>
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() => copyToClipboard(promptPreview.systemPrompt)}
+                                    >
+                                        نسخ
+                                    </Button>
+                                </div>
+                                <pre
+                                    dir="ltr"
+                                    className="whitespace-pre-wrap text-sm bg-background-tertiary/60 p-3 rounded-lg border border-border max-h-60 overflow-auto text-left"
+                                >
+                                    {promptPreview.systemPrompt}
+                                </pre>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold text-foreground">User Prompt</h4>
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() => copyToClipboard(promptPreview.userPrompt)}
+                                    >
+                                        نسخ
+                                    </Button>
+                                </div>
+                                <pre
+                                    dir="ltr"
+                                    className="whitespace-pre-wrap text-sm bg-background-tertiary/60 p-3 rounded-lg border border-border max-h-60 overflow-auto text-left"
+                                >
+                                    {promptPreview.userPrompt}
+                                </pre>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            )}
+
+            {/* JSON Prompt Modal */}
+            {isJsonPromptOpen && jsonPromptPreview && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <Card variant="glass" padding="lg" className="w-full max-w-4xl max-h-[90vh] overflow-auto">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-bold text-foreground">📋 JSON Prompts for ChatGPT</h3>
+                            <Button variant="ghost" size="sm" onClick={() => setIsJsonPromptOpen(false)}>
+                                إغلاق
+                            </Button>
+                        </div>
+
+                        {/* Instructions */}
+                        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                            <h4 className="font-bold text-blue-800 dark:text-blue-300 mb-2">كيفية الاستخدام:</h4>
+                            <ol className="text-sm text-blue-700 dark:text-blue-400 space-y-1 list-decimal list-inside">
+                                <li>انسخ البرومبت الكامل أدناه (مدمج - بنقرة واحدة)</li>
+                                <li>افتح ChatGPT (GPT-4 أو أحدث للحصول على أفضل النتائج)</li>
+                                <li>الصق البرومبت كاملاً في ChatGPT</li>
+                                <li>انتظر حتى يعطيك ChatGPT نتيجة JSON كاملة</li>
+                                <li>انسخ نتيجة JSON واذهب إلى <a href="/import" className="underline font-bold">صفحة الاستيراد</a></li>
+                            </ol>
+                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                                ⚠️ <strong>مهم:</strong> تأكد أن ChatGPT يعطيك JSON فقط (يبدأ بـ {"{"} وينتهي بـ {"}"}) بدون أي نص إضافي
+                            </p>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Combined Prompt */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold text-foreground">📋 Complete Prompt (Copy All)</h4>
+                                    <Button
+                                        size="sm"
+                                        variant="primary"
+                                        onClick={() => {
+                                            const combined = `${jsonPromptPreview.systemPrompt}\n\n---\n\n${jsonPromptPreview.userPrompt}`;
+                                            copyToClipboard(combined);
+                                        }}
+                                    >
+                                        📋 نسخ الكل
+                                    </Button>
+                                </div>
+                                <pre
+                                    dir="ltr"
+                                    className="whitespace-pre-wrap text-sm bg-gray-900 text-green-400 p-4 rounded-lg border border-green-700 max-h-[500px] overflow-auto text-left font-mono"
+                                >
+                                    {jsonPromptPreview.systemPrompt}
+                                    {"\n\n---\n\n"}
+                                    {jsonPromptPreview.userPrompt}
+                                </pre>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                                <Button variant="secondary" onClick={() => setIsJsonPromptOpen(false)}>
+                                    إغلاق
+                                </Button>
+                                <Button variant="gradient" onClick={() => window.location.href = '/import'}>
+                                    اذهب إلى صفحة الاستيراد →
+                                </Button>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
             )}
         </div>
     );

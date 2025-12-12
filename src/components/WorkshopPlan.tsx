@@ -243,8 +243,13 @@ function TimelineActivity({
     onActivityRegenerated: (activity: WorkshopActivity) => void;
     onCancelRegenerate: () => void;
 }) {
+    // V3: Check mainSteps FIRST (new field), then fall back to old fields for backward compatibility
     const stepsData =
-        (activity as any).steps || (activity as any).detailedSteps || activity.instructions || activity.detailedSteps || [];
+        activity.mainSteps ||           // V3 field (NEW - check first!)
+        activity.instructions ||         // V2 fallback
+        activity.detailedSteps ||        // V1 fallback
+        (activity as any).steps ||       // Legacy fallback
+        [];
     const variations = activity.variations;
     const shyChildTip = (activity as any).shyChildTip;
     const activeChildTip = (activity as any).activeChildTip;
@@ -266,6 +271,105 @@ function TimelineActivity({
             </div>
 
             <p className="mt-3 text-sm leading-relaxed text-slate-700">{activity.description}</p>
+
+            {/* V3: Activity Type Badge */}
+            {activity.activityType && (
+                <div className="mt-3">
+                    <span className="inline-block rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-800">
+                        {activity.activityType}
+                    </span>
+                </div>
+            )}
+
+            {/* V3: Why It Matters */}
+            {activity.whyItMatters && (
+                <div className="mt-3 rounded-xl border-l-4 border-blue-400 bg-blue-50 p-3">
+                    <h5 className="mb-1 text-sm font-semibold text-blue-900">💡 لماذا هذا النشاط مهم</h5>
+                    <p className="text-sm text-blue-800">{activity.whyItMatters}</p>
+                </div>
+            )}
+
+            {/* V3: What You Need (Materials) */}
+            {activity.whatYouNeed && activity.whatYouNeed.length > 0 && (
+                <Block title="📦 ما تحتاجه">
+                    <ul className="space-y-1 text-sm text-slate-700">
+                        {activity.whatYouNeed.map((material, i) => (
+                            <li key={i} className="flex gap-2">
+                                <span className="text-indigo-600">•</span>
+                                <span>{material}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </Block>
+            )}
+
+            {/* V3: Main Steps (3-5 clear steps) */}
+            {activity.mainSteps && activity.mainSteps.length > 0 && (
+                <Block title={`📝 الخطوات الأساسية (${activity.mainSteps.length} خطوات)`}>
+                    <ol className="space-y-2 text-sm text-slate-700">
+                        {activity.mainSteps.map((step, i) => (
+                            <li key={i} className="flex gap-2">
+                                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-semibold text-indigo-700">
+                                    {i + 1}
+                                </span>
+                                <span className="leading-relaxed">{step}</span>
+                            </li>
+                        ))}
+                    </ol>
+                </Block>
+            )}
+
+            {/* V3: Visual Cues (What facilitator demonstrates) */}
+            {activity.visualCues && activity.visualCues.length > 0 && (
+                <div className="mt-3 rounded-xl border-l-4 border-green-400 bg-green-50 p-3">
+                    <h5 className="mb-2 text-sm font-semibold text-green-900">👁️ إشارات بصرية للميسر</h5>
+                    <ul className="space-y-1 text-sm text-green-800">
+                        {activity.visualCues.map((cue, i) => (
+                            <li key={i} className="flex gap-2">
+                                <span>•</span>
+                                <span>{cue}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
+            {/* V3: Spoken Phrases (What facilitator says) */}
+            {activity.spokenPhrases && activity.spokenPhrases.length > 0 && (
+                <div className="mt-3 rounded-xl border-l-4 border-yellow-400 bg-yellow-50 p-3">
+                    <h5 className="mb-2 text-sm font-semibold text-yellow-900">💬 عبارات يقولها الميسر</h5>
+                    <ul className="space-y-1 text-sm text-yellow-800">
+                        {activity.spokenPhrases.map((phrase, i) => (
+                            <li key={i} className="flex gap-2">
+                                <span>•</span>
+                                <span>&quot;{phrase}&quot;</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
+            {/* V3: Confidence Building Moment */}
+            {activity.confidenceBuildingMoment && (
+                <div className="mt-3 rounded-xl border-l-4 border-pink-400 bg-pink-50 p-3">
+                    <h5 className="mb-1 text-sm font-semibold text-pink-900">⭐ لحظة بناء الثقة</h5>
+                    <p className="text-sm italic text-pink-800">{activity.confidenceBuildingMoment}</p>
+                </div>
+            )}
+
+            {/* V3: Life Skills Focus */}
+            {activity.lifeSkillsFocus && activity.lifeSkillsFocus.length > 0 && (
+                <div className="mt-3">
+                    <h5 className="mb-2 text-sm font-semibold text-slate-900">🎯 المهارات الحياتية</h5>
+                    <div className="flex flex-wrap gap-2">
+                        {activity.lifeSkillsFocus.map((skill, i) => (
+                            <span key={i} className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-800">
+                                {skill}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {activity.setupSteps && activity.setupSteps.length > 0 && (
                 <Block title="تهيئة المكان">

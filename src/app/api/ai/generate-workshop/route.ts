@@ -27,8 +27,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate duration
-        if (!["30", "45", "60", "90"].includes(body.duration)) {
-            body.duration = "60";
+        if (!["30", "45", "60", "90", "120"].includes(body.duration)) {
+            body.duration = "90"; // Default to 90 for better quality
         }
 
         // Validate age range

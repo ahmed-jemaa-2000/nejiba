@@ -1,93 +1,40 @@
 /**
  * OpenAI Client Wrapper for Nejiba Studio
- * 
+ *
  * Provides typed functions for workshop generation and activity regeneration.
- * 
- * v2.0 - Enhanced with game library, anti-repetition rules, and gpt-4o model
+ *
+ * v3.0 - TRANSFORMED: Diverse activity types, clarity-first, life skills focused
+ * Changes:
+ * - New activity type taxonomy (11 types vs 5 game types)
+ * - 3-5 steps MAX per activity (was 8-12)
+ * - Emphasis on making/crafting/reflection (not just games)
+ * - Validation for diversity, energy balance, clarity
  */
 
 import OpenAI from "openai";
-import { buildGameExamplesPrompt, ANTI_REPETITION_RULES, getTopicGames } from "./gameLibrary";
+import { buildActivityExamplesPrompt } from "./activityLibrary";
+import { buildWorkshopSystemPrompt, buildWorkshopUserPrompt, buildWorkshopJSONSystemPrompt, buildWorkshopJSONUserPrompt, WorkshopPromptConfig } from "./prompts/workshopSystemPrompt";
+import {
+    validateActivityDiversity,
+    validateEnergyBalance,
+    ActivityType
+} from "./activityTypes";
+
+// Import types from base.ts (unified interface with new V3 fields)
+import type {
+    WorkshopInput,
+    WorkshopActivity,
+    WorkshopPlanData,
+    ScheduleBlock
+} from "./providers/base";
+
+// Re-export for backward compatibility
+export type { WorkshopInput, WorkshopActivity, WorkshopPlanData, ScheduleBlock };
 
 // Initialize OpenAI client
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
-
-export interface WorkshopInput {
-    topic: string;
-    duration: "30" | "45" | "60";
-    ageRange: "6-8" | "8-10" | "10-12" | "mixed";
-    selectedMaterialNames?: string[]; // User-selected materials
-}
-
-export interface WorkshopActivity {
-    timeRange: string;
-    title: string;
-    titleEn?: string;
-
-    // Game metadata
-    gameType?: "حركة" | "تمثيل" | "تحدي فريق" | "موسيقى" | "تنافس";
-    energyLevel?: string; // e.g., "🔋🔋🔋 عالي"
-    groupSize?: string; // e.g., "فردي | ثنائي | فرق من 4-5"
-    learningGoal?: string;
-
-    // Core content
-    description: string;
-    setupSteps?: string[]; // 2-4 preparation steps before activity
-    instructions: string[]; // 8-12 detailed steps with exact phrases
-    detailedSteps?: string[]; // Alias for backward compatibility
-
-    // Enhanced details for PDF quality
-    safetyTips?: string; // Age-specific safety considerations
-    debriefQuestions?: string[]; // 2-3 reflection questions for kids
-    funFactor?: string;
-}
-
-export interface ScheduleBlock {
-    blockType: "opener" | "main" | "transition" | "closing";
-    startMinute: number;
-    endMinute: number;
-    activity: WorkshopActivity;
-}
-
-export interface WorkshopPlanData {
-    title: { ar: string; en: string };
-    theme?: string;
-    ageRange?: string;
-    totalDurationMinutes?: number;
-    learningObjectives?: string[];
-    generalInfo: {
-        duration: string;
-        ageGroup: string;
-        participants: string;
-        level: string;
-        facilitatorCount?: string;
-    };
-    objectives: { ar: string; en?: string }[];
-    materials: string[] | { item: string; quantity: string; notes?: string }[];
-    roomSetup?: string;
-    schedule?: ScheduleBlock[];
-    timeline: WorkshopActivity[];
-
-    // Enhanced closing section
-    closingReflection?: {
-        title: string;
-        nameAr?: string;
-        nameEn?: string;
-        duration?: string;
-        durationMinutes?: number;
-        description: string;
-        steps?: string[];
-        questions: string[];
-    };
-
-    // Simple facilitator notes
-    facilitatorNotes: string[] | {
-        beforeWorkshop?: string[];
-        duringWorkshop?: string[];
-    };
-}
 
 const AGE_DESCRIPTORS: Record<string, { ar: string; en: string; characteristics: string }> = {
     "6-8": {
@@ -117,337 +64,231 @@ const AGE_DESCRIPTORS: Record<string, { ar: string; en: string; characteristics:
     },
 };
 
+const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
+
+function cleanContentForJson(content: string): string {
+    return content.replace(/[\u0000-\u001F\u007F-\u009F]/g, "").trim();
+}
+
+function extractJsonString(content: string, wantArray: boolean): string | null {
+    const fenced =
+        content.match(/```json\s*([\s\S]*?)\s*```/i) ||
+        content.match(/```\s*([\s\S]*?)\s*```/);
+    if (fenced) return fenced[1].trim();
+
+    const loose = wantArray
+        ? content.match(/\[[\s\S]*\]/)
+        : content.match(/\{[\s\S]*\}/);
+    return loose ? loose[0].trim() : null;
+}
+
+function parseJsonFromModel<T>(content: string, wantArray: boolean): T {
+    const cleaned = cleanContentForJson(content);
+    const jsonStr = extractJsonString(cleaned, wantArray) || cleaned;
+    return JSON.parse(jsonStr) as T;
+}
+
+function getMandatoryWorkshopValidationErrors(plan: WorkshopPlanData): string[] {
+    const errors: string[] = [];
+    const timeline = plan.timeline || plan.schedule?.map((s: ScheduleBlock) => s.activity) || [];
+
+    timeline.forEach((activity: WorkshopActivity, index: number) => {
+        const activityId = `Activity ${index + 1} ("${activity.title}")`;
+
+        if (!activity.activityType) {
+            errors.push(`${activityId}: Missing activityType field`);
+        }
+
+        const steps = activity.mainSteps || activity.instructions || [];
+        if (steps.length < 3) {
+            errors.push(`${activityId}: mainSteps has only ${steps.length} steps (need 3-5)`);
+        }
+        if (steps.length > 6) {
+            errors.push(`${activityId}: mainSteps has ${steps.length} steps (need 3-5, max 6 allowed)`);
+        }
+        if (!activity.mainSteps) {
+            errors.push(`${activityId}: Using old 'instructions' field instead of 'mainSteps'`);
+        }
+
+        if (!activity.lifeSkillsFocus || activity.lifeSkillsFocus.length === 0) {
+            errors.push(`${activityId}: Missing lifeSkillsFocus array`);
+        }
+
+        if (!activity.confidenceBuildingMoment || activity.confidenceBuildingMoment.trim() === "") {
+            errors.push(`${activityId}: Missing confidenceBuildingMoment field`);
+        }
+
+        if (!activity.visualCues || activity.visualCues.length < 3) {
+            errors.push(`${activityId}: Missing visualCues array (need minimum 3 items)`);
+        }
+
+        if (!activity.spokenPhrases || activity.spokenPhrases.length < 3) {
+            errors.push(`${activityId}: Missing spokenPhrases array (need minimum 3 items)`);
+        }
+
+        if (!activity.whatYouNeed || activity.whatYouNeed.length === 0) {
+            errors.push(`${activityId}: Missing whatYouNeed materials array`);
+        }
+
+        if (!activity.whyItMatters || activity.whyItMatters.trim() === "") {
+            errors.push(`${activityId}: Missing whyItMatters field`);
+        }
+
+        if (!activity.energyLevel) {
+            errors.push(`${activityId}: Missing energyLevel field`);
+        }
+
+        if (!activity.complexityLevel) {
+            errors.push(`${activityId}: Missing complexityLevel field`);
+        }
+
+        if (activity.estimatedSteps == null) {
+            errors.push(`${activityId}: Missing estimatedSteps field`);
+        } else if (activity.mainSteps && activity.estimatedSteps !== activity.mainSteps.length) {
+            errors.push(`${activityId}: estimatedSteps (${activity.estimatedSteps}) does not match mainSteps length (${activity.mainSteps.length})`);
+        }
+    });
+
+    return errors;
+}
+
+type PromptOutputFormat = "json" | "text";
+
+function buildWorkshopTextSystemPrompt(config: WorkshopPromptConfig): string {
+    return `You are a WORLD-CLASS CHILDREN'S WORKSHOP DESIGNER specializing in LIFE SKILLS DEVELOPMENT for Tunisian cultural centers.
+
+# YOUR CORE MISSION:
+Design ${config.durationMinutes}-minute workshops that help kids develop:
+- Confidence: "I can do this!"
+- Bravery: "I'll try even if I'm scared"
+- Friendship: "I belong with others"
+
+# CRITICAL DESIGN PRINCIPLES (FOLLOW ALL)
+
+1) CLARITY IS EVERYTHING
+- Each activity MUST have EXACTLY 3–5 mainSteps.
+- One concrete action per step, in Arabic, kid-level language.
+- No abstract steps, no multi-actions in one step.
+- Include visualCues (3+) and spokenPhrases (3+) for every activity.
+
+2) DIVERSE ACTIVITY TYPES
+- 6 blocks = 6 DIFFERENT activityType values (no repetition).
+- Block 3 MUST be a making/creating activity where kids produce something tangible.
+- Block 5 MUST be calm reflective/sharing.
+
+3) ENERGY BALANCE
+- Mix high / medium / low energy.
+- Do not make the whole workshop high energy.
+
+4) MATERIALS
+- Use only cheap, accessible materials (recyclables + basic craft supplies).
+${config.materialsContext}
+
+# WORKSHOP STRUCTURE (6 blocks in this order)
+1. Welcome Circle (~10%)
+2. Explore (~20%)
+3. Create & Try (~30%) **MAKING/CREATING**
+4. Move & Energize (~15%) **HIGH ENERGY, SIMPLE**
+5. Reflect & Share (~15%) **LOW ENERGY, PAIRS/SMALL GROUPS**
+6. Celebrate & Close (~10%)
+
+${config.activityLibraryPrompt}
+
+# OUTPUT FORMAT (TEXT ONLY)
+Return a clear, structured workshop plan in Arabic TEXT. DO NOT return JSON or code blocks.
+Use this exact layout:
+
+1) Workshop Title (Arabic) + TitleEn
+2) General Info: duration, age group, participants, level
+3) Objectives: 5+ bullet points
+4) Materials: 8+ bullets
+
+Then for each Block 1–6:
+- Time range
+- Block name
+- Activity title (Arabic) + titleEn
+- activityType (one of the app ActivityType values)
+- energyLevel (high/medium/low)
+- whatYouNeed (materials in Arabic)
+- description (1–2 Arabic sentences)
+- mainSteps: 3–5 numbered Arabic steps (ONE action each)
+- visualCues: 3+ bullets
+- spokenPhrases: 3+ exact Arabic phrases facilitator says
+- lifeSkillsFocus: 2–3 skills
+- confidenceBuildingMoment (exact moment kids feel proud)
+- whyItMatters (one Arabic sentence)
+- variations (optional)
+- safetyTips (short)
+- debriefQuestions (2–3)
+
+Finally:
+Facilitator Notes (beforeWorkshop, duringWorkshop).
+
+Before answering, silently self-check every rule and fix any violation.`;
+}
+
+function buildWorkshopTextUserPrompt(topic: string, durationMinutes: number, ageInfo: { ar: string; en: string }): string {
+    return `# NEW WORKSHOP REQUEST (TEXT OUTPUT)
+
+Topic: "${topic}"
+Duration: ${durationMinutes} minutes
+Age Group: ${ageInfo.ar} (${ageInfo.en})
+Context: Cultural center, 10-15 kids, limited budget
+
+Generate the complete plan now in clear Arabic text (NOT JSON), following all rules above.`;
+}
+
 /**
- * Generate a complete workshop plan using GPT-4o
- * Enhanced version with Professor Playful persona, game library, and anti-repetition rules
- * 
- * v2.0 - Upgraded to gpt-4o for better creativity and topic-specific activities
+ * Generate a complete workshop plan using GPT-5-mini
+ * v3.0 - TRANSFORMED: Diverse activity types, clarity-first (3-5 steps), life skills focused
+ *
+ * Major Changes:
+ * - Uses new activity taxonomy (11 types: making, art, reflection, storytelling, etc.)
+ * - Enforces 3-5 steps MAX per activity (down from 8-12)
+ * - Requires confidence-building moments and life skills alignment
+ * - Validates diversity (min 4 different activity types)
+ * - Validates energy balance (not all high-energy games)
  */
 export async function generateWorkshopPlan(input: WorkshopInput): Promise<WorkshopPlanData> {
     const ageInfo = AGE_DESCRIPTORS[input.ageRange];
     const durationNum = parseInt(input.duration);
 
-    // Build materials context for the prompt
+    // Build materials context emphasizing CRAFT and CREATIVE materials
     const materialsContext = input.selectedMaterialNames && input.selectedMaterialNames.length > 0
-        ? `\n\nAvailable Materials (MUST design activities using these):\n${input.selectedMaterialNames.map(m => `- ${m}`).join('\n')}`
-        : "\n\nUse common workshop items: balls, scarves, cones, music player, balloons, hula hoops, bean bags, ropes.";
+        ? `\n\n# 📦 AVAILABLE MATERIALS (MUST USE THESE IN ACTIVITIES):\n${input.selectedMaterialNames.map(m => `- ${m}`).join('\n')}\n\n**IMPORTANT**: Design activities that CREATIVELY USE these materials - especially craft supplies!`
+        : `\n\n# 📦 RECOMMENDED MATERIALS:\n
+**Craft & Making:**
+- Recyclables: plastic cups, cardboard boxes, bottle caps, newspapers
+- Basic craft: colored paper, scissors, glue, markers, tape
+- Process art: string, paint, sponges, cotton balls, bubble solution
 
-    // Get topic-specific game examples and anti-repetition rules
-    const gameExamplesPrompt = buildGameExamplesPrompt(input.topic);
-    const topicMapping = getTopicGames(input.topic);
+**Movement:**
+- Balls, balloons, scarves, cones, hula hoops, bean bags
 
-    const systemPrompt = `You are **Professor Playful** (البروفيسور المرح), a senior children's workshop designer with 25+ years creating unforgettable educational play experiences for kids aged 6-14 in Tunisia.
+**Reflection:**
+- Cushions, emotion cards, story cards
 
-# YOUR MISSION
-Produce an **ACTION-READY** workshop plan any facilitator can run TODAY. Prioritize:
-- 🏃 MOVEMENT: Running, jumping, dancing, physical challenges
-- 🤝 TEAMWORK: Group challenges with visible scoring
-- 🎭 DRAMA: Role-play, charades, freeze poses, acting
-- 🎵 MUSIC: Rhythm games, freeze dance, musical chairs
-- 🏆 COMPETITION: Points, teams, winners with celebration
+**FOCUS**: Use cheap, accessible materials for creative MAKING activities (not just games)!`;
 
-# ⛔ ABSOLUTELY FORBIDDEN (NEVER USE)
-❌ Writing activities - NO اكتبوا، دونوا، سجلوا
-❌ Coloring/drawing - NO ارسموا، لونوا
-❌ Reading activities - NO اقرأوا
-❌ Sitting quietly for more than 30 seconds
-❌ Discussions where kids just talk (must DO something)
-❌ Watching videos/screens
-❌ Any passive activity where kids are observers
+    // Get topic-specific ACTIVITY examples (new system - not just games!)
+    const activityLibraryPrompt = buildActivityExamplesPrompt(input.topic);
 
-# ✅ EVERY ACTIVITY MUST BE PHYSICAL
-Kids must be:
-- Standing, moving, jumping, running, dancing
-- Acting, miming, gesturing, posing
-- Passing objects, throwing, catching
-- Racing, competing physically
-- Making sounds, clapping, stomping
+    // Build prompt configuration
+    const promptConfig: WorkshopPromptConfig = {
+        durationMinutes: durationNum,
+        ageRange: input.ageRange,
+        ageDescriptionAr: ageInfo.ar,
+        ageDescriptionEn: ageInfo.en,
+        activityLibraryPrompt,
+        materialsContext
+    };
 
-# OUTPUT REQUIREMENTS
+    // Generate prompts using new system
+    const systemPrompt = buildWorkshopSystemPrompt(promptConfig);
+    const userPrompt = buildWorkshopUserPrompt(input.topic, durationNum, ageInfo);
 
-## ⚠️ CRITICAL: MINIMUM 8 STEPS PER ACTIVITY
-Each activity MUST have exactly 8-12 steps. NOT 5, NOT 6. MINIMUM 8.
-
-## Language Rules
-- ALL narrative text in ARABIC
-- English titles alongside Arabic names
-
-## Each Activity MUST Have:
-1. **setup** (2-4 prep steps before kids arrive)
-2. **steps** (⚠️ EXACTLY 8-12 numbered steps with):
-   - step number (1 through 8 minimum)
-   - timeHint: "(30 ثانية)" or "(1 دقيقة)"
-   - spokenPromptAr: EXACT Arabic phrase to say in quotes
-   - action: what kids PHYSICALLY do (movement, not writing!)
-3. **variations**: { easy, medium, hard } with age-specific adaptations
-4. **safetyTips**: concrete precautions for this activity
-5. **debriefQuestions**: 2-3 child-friendly reflection questions
-
-# JSON OUTPUT FORMAT (STRICT)
-
-Return ONLY valid JSON:
-{
-  "title": { "ar": "ورشة: [الموضوع]", "en": "Workshop: [Topic]" },
-  "theme": "[Main theme]",
-  "ageRange": "${input.ageRange}",
-  "totalDurationMinutes": ${durationNum},
-  "learningObjectives": [
-    "هدف تعليمي 1 - Learning objective 1",
-    "هدف تعليمي 2 - Learning objective 2",
-    "هدف تعليمي 3 - Learning objective 3",
-    "هدف تعليمي 4 - Learning objective 4",
-    "هدف تعليمي 5 - Learning objective 5"
-  ],
-  "materials": [
-    { "item": "اسم المادة", "quantity": "العدد", "notes": "ملاحظة" }
-  ],
-  "roomSetup": "وصف ترتيب الغرفة قبل وصول الأطفال...",
-  "generalInfo": {
-    "duration": "${input.duration} دقيقة",
-    "ageGroup": "${ageInfo.ar}",
-    "participants": "10-15 طفل",
-    "level": "مبتدئ",
-    "facilitatorCount": "1-2 ميسر"
-  },
-  "objectives": [
-    { "ar": "هدف 1", "en": "Objective 1" }
-  ],
-  "schedule": [
-    {
-      "blockType": "opener",
-      "startMinute": 0,
-      "endMinute": 8,
-      "activity": {
-        "nameAr": "اسم اللعبة",
-        "nameEn": "Game Name",
-        "title": "اسم اللعبة",
-        "titleEn": "Game Name",
-        "timeRange": "0-8 دقيقة",
-        "recommendedAge": "${input.ageRange}",
-        "durationMinutes": 8,
-        "groupSize": "whole group",
-        "learningGoals": ["مهارة 1", "مهارة 2"],
-        "materialsNeeded": ["كرة", "موسيقى"],
-        "gameType": "حركة",
-        "energyLevel": "🔋🔋🔋 عالي",
-        "description": "وصف النشاط بالتفصيل...",
-        "setup": [
-          "التحضير 1: رتب المكان",
-          "التحضير 2: جهز المواد"
-        ],
-        "steps": [
-          { "step": 1, "timeHint": "(30 ثانية)", "spokenPromptAr": "يا أبطال! تعالوا نقف في دائرة كبيرة!", "action": "الأطفال يقفون في دائرة" },
-          { "step": 2, "timeHint": "(1 دقيقة)", "spokenPromptAr": "اليوم عندنا لعبة حماسية جداً!", "action": "الميسر يشرح القواعد" }
-        ],
-        "instructions": ["خطوة 1", "خطوة 2"],
-        "variations": {
-          "easy": "🟢 للصغار (6-7): تبسيط القواعد...",
-          "medium": "🟡 للمتوسطين (8-10): النسخة الأساسية...",
-          "hard": "🔴 للكبار (11-14): إضافة تحديات..."
-        },
-        "safetyTips": "تأكد من المسافة بين الأطفال، الأرضية غير زلقة",
-        "debriefQuestions": [
-          "ما أكثر شيء أعجبكم؟",
-          "ماذا تعلمنا؟"
-        ],
-        "funFactor": "لماذا سيحب الأطفال هذا النشاط",
-        "facilitatorNotes": "ملاحظات إضافية"
-      }
-    }
-  ],
-  "timeline": [
-    {
-      "timeRange": "0-11 دقيقة",
-      "title": "اسم اللعبة الحقيقي",
-      "titleEn": "Real Game Name",
-      "description": "وصف حقيقي للنشاط...",
-      "gameType": "حركة",
-      "energyLevel": "🔋🔋🔋 عالي",
-      "groupSize": "الجميع معاً",
-      "learningGoal": "المهارة المحددة",
-      "setupSteps": [
-        "رتب المكان قبل وصول الأطفال",
-        "جهز المواد المطلوبة"
-      ],
-      "steps": [
-        { "step": 1, "timeHint": "(30 ثانية)", "spokenPromptAr": "يا أبطال! تعالوا اجتمعوا!", "action": "الأطفال يركضون نحو الميسر" },
-        { "step": 2, "timeHint": "(1 دقيقة)", "spokenPromptAr": "اليوم عندنا تحدي!", "action": "الميسر يشرح القواعد" },
-        { "step": 3, "timeHint": "(30 ثانية)", "spokenPromptAr": "مين فهم؟", "action": "الأطفال يرفعون أيديهم" },
-        { "step": 4, "timeHint": "(2 دقيقة)", "spokenPromptAr": "يلا نبدأ!", "action": "الأطفال ينفذون النشاط" },
-        { "step": 5, "timeHint": "(2 دقيقة)", "spokenPromptAr": "استمروا!", "action": "تكرار النشاط" },
-        { "step": 6, "timeHint": "(1 دقيقة)", "spokenPromptAr": "ممتاز!", "action": "الميسر يشجع" },
-        { "step": 7, "timeHint": "(1 دقيقة)", "spokenPromptAr": "مين الأسرع؟", "action": "منافسة" },
-        { "step": 8, "timeHint": "(1 دقيقة)", "spokenPromptAr": "تصفيق!", "action": "احتفال" }
-      ],
-      "safetyTips": "تأكد من المسافة بين الأطفال",
-      "debriefQuestions": ["ما أكثر شيء أعجبكم؟", "ماذا تعلمنا؟"]
-    }
-  ],
-  "closingReflection": {
-    "nameAr": "دائرة الختام",
-    "nameEn": "Closing Circle",
-    "title": "دائرة الختام",
-    "durationMinutes": 7,
-    "duration": "7 دقائق",
-    "description": "نشاط هادئ للتأمل والاحتفال",
-    "steps": ["step 1", "step 2", "step 3"],
-    "questions": [
-      "ما أكثر شيء استمتعت به اليوم؟",
-      "ما الشيء الجديد الذي تعلمته؟",
-      "ماذا ستخبر أهلك عن ورشة اليوم؟"
-    ]
-  },
-  "facilitatorNotes": {
-    "beforeWorkshop": [
-      "حضّر جميع المواد قبل 15 دقيقة",
-      "رتب المكان بشكل يسمح بالحركة",
-      "تأكد من وجود ماء للأطفال"
-    ],
-    "duringWorkshop": [
-      "راقب طاقة المجموعة وعدّل الوتيرة",
-      "استخدم إشارة الهدوء عند الحاجة",
-      "شجع كل طفل بالاسم"
-    ]
-  }
-}
-
-# TIMELINE STRUCTURE FOR ${durationNum} MINUTES
-
-Design exactly 5-6 activities:
-
-| Block | Time | Type | Energy |
-|-------|------|------|--------|
-| opener | 0-${Math.round(durationNum * 0.12)} min | Welcome + Ice breaker | 🔋🔋🔋 HIGH |
-| main | ${Math.round(durationNum * 0.12)}-${Math.round(durationNum * 0.35)} min | Team Competition Game | 🔋🔋🔋 HIGH |
-| transition | ${Math.round(durationNum * 0.35)}-${Math.round(durationNum * 0.42)} min | Quick Energizer | 🔋🔋 MED |
-| main | ${Math.round(durationNum * 0.42)}-${Math.round(durationNum * 0.65)} min | Drama/Acting Game | 🔋🔋🔋 HIGH |
-| main | ${Math.round(durationNum * 0.65)}-${Math.round(durationNum * 0.85)} min | Final Challenge | 🔋🔋🔋 HIGH |
-| closing | ${Math.round(durationNum * 0.85)}-${durationNum} min | Reflection + Celebration | 🔋🔋 MED |
-
-# QUALITY CHECKLIST
-☑️ Every activity has 8-12 steps with EXACT Arabic phrases
-☑️ Every step has timing hint like (30 ثانية)
-☑️ safetyTips are specific to activity type
-☑️ debriefQuestions are simple for children
-☑️ NO passive activities
-☑️ At least 4 activities require physical movement
-☑️ schedule array matches timeline array`;
-
-    const userPrompt = `# 🎯 WORKSHOP REQUEST
-
-**Topic**: "${input.topic}"
-**Duration**: ${durationNum} minutes  
-**Age Group**: ${ageInfo.ar} (${ageInfo.en})
-**Characteristics**: ${ageInfo.characteristics}
-${materialsContext}
-
-**Context**: مركز ثقافي "الطفل القائد" ببن عروس - تونس. 10-15 طفل. قاعة داخلية مع مساحة مفتوحة.
-
----
-
-${gameExamplesPrompt}
-
-${ANTI_REPETITION_RULES.replace('${"{topic}"}', input.topic)}
-
----
-
-# ⛔ CRITICAL: NO PLACEHOLDER TEXT
-
-DO NOT write:
-- "خطوة 1", "خطوة 2", "خطوة 3" ❌
-- "وصف النشاط...", "هدف 1", "هدف 2" ❌
-- Any generic placeholder text ❌
-- "تحدي الفريق" or "التحدي النهائي" as generic names ❌
-
-INSTEAD write REAL, SPECIFIC content:
-- "يا أبطال! قفوا في دائرة كبيرة الآن!" ✅
-- "مرروا الكرة بسرعة قبل ما تنتهي الموسيقى!" ✅
-- Creative game names like "آلة الاختراعات" or "مهندسون صغار" ✅
-
----
-
-# ⛔ FORBIDDEN WORDS - DO NOT USE THESE VERBS:
-- ❌ اكتبوا (write)
-- ❌ دونوا (note down)  
-- ❌ سجلوا (record/write)
-- ❌ ارسموا (draw)
-- ❌ لونوا (color)
-- ❌ اقرأوا (read)
-
-# ✅ USE THESE ACTION VERBS INSTEAD:
-- ✅ اركضوا (run)
-- ✅ اقفزوا (jump)
-- ✅ ارقصوا (dance)
-- ✅ مثلوا (act)
-- ✅ تجمدوا (freeze)
-- ✅ صفقوا (clap)
-- ✅ مرروا الكرة (pass the ball)
-- ✅ قلدوا (imitate)
-- ✅ ابتكروا (invent/create)
-- ✅ تخيلوا (imagine)
-
----
-
-# 📋 REQUIRED OUTPUT
-
-## 5 Learning Objectives SPECIFIC to "${input.topic}"
-${topicMapping ? `Use these templates:\n${topicMapping.objectiveTemplates.map((t, i) => `${i + 1}. ${t}`).join('\n')}` : `Write 5 SPECIFIC objectives related to "${input.topic}":\n- يتعلم الطفل [مهارة محددة]\n- يمارس الطفل [سلوك محدد]\n- يكتشف الطفل [قدرة محددة]`}
-
-## 8-12 Materials (NOT 2!)
-List at least 8 materials with quantities and notes.
-
-## ⚠️ ACTIVITY STRUCTURE: THE "GOLDEN GAME LOOP" (REQUIRED)
-Don't just list steps. Design a JOURNEY for each game using these 5 PHASES:
-
-1. **🎣 Phase 1: The Hook (Steps 1-2)**
-   - Grab attention immediately (Story/Fantasy context).
-   - "Imagine we are..." or "Who can be the fastest?"
-
-2. **👀 Phase 2: Visual Demo (Steps 3-4)**
-   - SHOW, don't just tell.
-   - "Watch me do this..."
-   - Verify understanding: "Thumbs up if you got it?"
-
-3. **🟢 Phase 3: Practice Round (Steps 5-6)**
-   - Low stakes, slow motion, no scoring yet.
-   - Let them feel the mechanic safely.
-
-4. **🔥 Phase 4: The Challenge & Twist (Steps 7-9)**
-   - The "Real Game" begins.
-   - ADD A TWIST: "Now do it on one leg!", "Now silent!", "Double speed!"
-
-5. **🚀 Phase 5: The Climax (Steps 10+)**
-   - High energy final round.
-   - "Final Boss" moment or big celebration.
-
-**TOTAL STEPS should naturally be 8-12 because of this structure.**
-
-## Activity Quality Checklist:
-1. **Progression**: Does it get harder/funnier?
-2. **Scaffolding**: Do they practice before competing?
-3. **Twists**: Is there a surprise rule change halfway?
-4. **Unique Mechanic**: Is it DIFFERENT from all other games?
-
-4. **TOPIC-SPECIFIC** - Activities 2, 4, 5 must DIRECTLY teach "${input.topic}"
-5. **variations** object: { "easy": "...", "medium": "...", "hard": "..." }
-6. **safetyTips**: Safety precaution specific to this activity
-7. **debriefQuestions**: 2-3 quick verbal questions (not written!)
-
----
-
-Generate workshop plan for "${input.topic}" now. 
-
-⚠️ FINAL CHECKLIST (Answer YES to all before submitting):
-☑️ All 6 activities have DIFFERENT core mechanics?
-☑️ At least 3 different gameTypes used?
-☑️ Activities 2, 4, 5 specifically teach "${input.topic}"?
-☑️ Each activity has 8-12 detailed steps?
-☑️ At least 8 materials listed?
-☑️ 5 learning objectives specific to "${input.topic}"?
-☑️ NO two activities could be swapped without noticing?`;
-
-    console.log("🎓 Generating workshop for:", input.topic, "| Duration:", durationNum, "min | Age:", input.ageRange);
-    console.log("📚 Using game library with", topicMapping ? topicMapping.exampleGames.length : 0, "topic-specific examples");
+    console.log("🎓 V3.0 Generating DIVERSE workshop for:", input.topic, "| Duration:", durationNum, "min | Age:", input.ageRange);
+    console.log("✨ NEW: Clarity-first (3-5 steps), diverse activity types, life skills focused");
 
     // LOGGING PROMPTS FOR DEBUGGING
     console.log("\n========== SYSTEM PROMPT ==========\n", systemPrompt, "\n===================================\n");
@@ -457,14 +298,31 @@ Generate workshop plan for "${input.topic}" now.
     // 1. "gpt-5-mini"  - $0.006/workshop - BEST VALUE ✅
     // 2. "gpt-5-nano"   - $0.004/workshop - CHEAPEST (33% cheaper, test quality first)
     // 3. "gpt-5-mini"   - $0.021/workshop - PREMIUM (3.5x more, newer knowledge Oct 2024)
-    const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini", // Current: Best value - fast, cheap, excellent quality
-        messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-        ],
+    const baseMessages = [
+        { role: "system" as const, content: systemPrompt },
+        { role: "user" as const, content: userPrompt },
+    ];
+
+    let lastFailure: Error | null = null;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const completion = await openai.chat.completions.create({
+        model: DEFAULT_OPENAI_MODEL, // Allow override via OPENAI_MODEL
+        messages: attempt === 0
+            ? baseMessages
+            : [
+                ...baseMessages,
+                {
+                    role: "user",
+                    content:
+                        `Your previous JSON failed mandatory validation. Fix ALL issues below and regenerate the FULL workshop plan.\n` +
+                        `Return ONLY valid JSON.\n\nIssues:\n${lastFailure?.message}`
+                }
+            ],
         max_completion_tokens: 24000,
         response_format: { type: "json_object" },
+        temperature: 0.8,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -473,8 +331,17 @@ Generate workshop plan for "${input.topic}" now.
         throw new Error("No response from OpenAI");
     }
 
-    try {
-        const parsed = JSON.parse(content) as WorkshopPlanData;
+    const parsed = parseJsonFromModel<WorkshopPlanData>(content, false);
+
+        // Ensure objectives exists (fallback from learningObjectives)
+        if (!parsed.objectives && parsed.learningObjectives) {
+            parsed.objectives = parsed.learningObjectives.map(obj => ({
+                ar: obj,
+                en: ""
+            }));
+        } else if (!parsed.objectives) {
+            parsed.objectives = [];
+        }
 
         // Ensure backward compatibility: populate timeline from schedule if needed
         if (parsed.schedule && !parsed.timeline) {
@@ -489,31 +356,84 @@ Generate workshop plan for "${input.topic}" now.
             }));
         }
 
-        // ========== POST-GENERATION VALIDATION ==========
+        // ========== V3.0 MANDATORY FIELD VALIDATION ==========
+        // Reject workshop if critical fields are missing - FORCE AI to use detailed format
+        console.log("🔍 V3.0 Validating mandatory fields...");
+
+        const validationErrors = getMandatoryWorkshopValidationErrors(parsed);
+
+        // If validation errors exist, throw error and force regeneration
+        if (validationErrors.length > 0) {
+            console.error("❌ V3.0 Validation FAILED - Missing required fields:");
+            validationErrors.forEach(err => console.error(`  - ${err}`));
+
+            throw new Error(
+                `Generated workshop missing required V3 fields:\n${validationErrors.join('\n')}\n\n` +
+                `The AI must include: activityType, mainSteps (3-5 items), lifeSkillsFocus, ` +
+                `confidenceBuildingMoment, visualCues (3+), spokenPhrases (3+), whatYouNeed, whyItMatters, ` +
+                `energyLevel, complexityLevel, estimatedSteps for EVERY activity.`
+            );
+        }
+
+        console.log("✅ V3.0 Mandatory fields validation passed!");
+
+        // ========== V3.0 POST-GENERATION VALIDATION (QUALITY WARNINGS) ==========
         const validationIssues: string[] = [];
 
         if (parsed.timeline && parsed.timeline.length > 0) {
-            // Check for repetitive activity titles
+            // V3.0: Check activity type diversity (NEW - most important!)
+            const activityTypes = parsed.timeline
+                .map(a => a.activityType)
+                .filter(Boolean) as ActivityType[];
+
+            if (activityTypes.length > 0) {
+                const diversityResult = validateActivityDiversity(activityTypes);
+                if (!diversityResult.isValid) {
+                    validationIssues.push(diversityResult.message);
+                } else {
+                    console.log(diversityResult.message);
+                }
+            }
+
+            // V3.0: Check energy balance (NEW)
+            if (activityTypes.length > 0) {
+                const energyResult = validateEnergyBalance(activityTypes);
+                if (!energyResult.isValid) {
+                    validationIssues.push(energyResult.message);
+                } else {
+                    console.log(energyResult.message);
+                }
+            }
+
+            // V3.0: Check step counts (CLARITY VALIDATION - NEW!)
+            parsed.timeline.forEach((activity, i) => {
+                const stepCount = activity.mainSteps?.length || activity.instructions?.length || 0;
+                if (stepCount > 6) {
+                    validationIssues.push(`⚠️ Activity ${i + 1} "${activity.title}" has ${stepCount} steps (should be 3-5 for clarity)`);
+                }
+                if (!activity.lifeSkillsFocus || activity.lifeSkillsFocus.length === 0) {
+                    validationIssues.push(`⚠️ Activity ${i + 1} missing life skills focus`);
+                }
+                if (!activity.confidenceBuildingMoment) {
+                    validationIssues.push(`⚠️ Activity ${i + 1} missing confidence-building moment`);
+                }
+            });
+
+            // V3.0: Check for creative/making activities (NEW REQUIREMENT)
+            const creativeTypes = activityTypes.filter(t =>
+                t === "صنع وإبداع" || t === "فن وتعبير"
+            );
+            if (creativeTypes.length === 0) {
+                validationIssues.push(`⚠️ NO creative making activities (required at least 1)`);
+            } else {
+                console.log(`✅ Good: ${creativeTypes.length} creative/making activities found`);
+            }
+
+            // Check for repetitive activity titles (keep from old system)
             const titles = parsed.timeline.map(a => a.title.toLowerCase().replace(/[0-9]/g, '').trim());
             const uniqueTitles = new Set(titles);
             if (uniqueTitles.size < titles.length * 0.7) {
                 validationIssues.push("⚠️ Repetitive activity titles detected");
-            }
-
-            // Check for variety in game types
-            const gameTypes = parsed.timeline.map(a => (a as any).gameType).filter(Boolean);
-            const uniqueTypes = new Set(gameTypes);
-            if (uniqueTypes.size < 3) {
-                validationIssues.push(`⚠️ Low game type variety: only ${uniqueTypes.size} types (${Array.from(uniqueTypes).join(', ')})`);
-            }
-
-            // Check for similar descriptions (building tower/pyramid detection)
-            const descriptions = parsed.timeline.map(a => a.description.toLowerCase());
-            const buildingActivities = descriptions.filter(d =>
-                d.includes('برج') || d.includes('هرم') || d.includes('بناء') || d.includes('build')
-            );
-            if (buildingActivities.length > 1) {
-                validationIssues.push("⚠️ Multiple 'building' activities detected - may be repetitive");
             }
         }
 
@@ -529,33 +449,23 @@ Generate workshop plan for "${input.topic}" now.
 
         // Log validation results
         if (validationIssues.length > 0) {
-            console.log("⚠️ QUALITY VALIDATION WARNINGS:");
+            console.log("\n⚠️ V3.0 QUALITY VALIDATION WARNINGS:");
             validationIssues.forEach(issue => console.log("  ", issue));
         } else {
-            console.log("✅ Quality validation passed - good variety detected");
+            console.log("\n✅ V3.0 Quality validation passed - excellent diversity and clarity!");
         }
 
         console.log("✅ Workshop plan generated successfully with", parsed.timeline?.length || parsed.schedule?.length || 0, "activities");
         return parsed;
-    } catch (parseError) {
-        console.error("❌ JSON Parse Error. Content preview:", content.substring(0, 500));
-
-        // Try to extract JSON from the response
-        const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) ||
-            content.match(/```\s*([\s\S]*?)\s*```/) ||
-            content.match(/\{[\s\S]*\}/);
-
-        if (jsonMatch) {
-            const jsonStr = jsonMatch[1] || jsonMatch[0];
-            try {
-                return JSON.parse(jsonStr) as WorkshopPlanData;
-            } catch {
-                console.error("Secondary parse also failed");
-            }
-        }
-
-        throw new Error(`Failed to parse workshop plan JSON: ${parseError}`);
+    } catch (e) {
+        lastFailure = e instanceof Error ? e : new Error(String(e));
+        console.error(`Workshop generation attempt ${attempt + 1} failed`, lastFailure);
+        if (attempt === 0) continue;
+        throw lastFailure;
     }
+    }
+
+    throw lastFailure || new Error("Failed to generate workshop plan");
 }
 
 /**
@@ -569,7 +479,7 @@ export async function regenerateActivity(
     const currentActivity = workshopPlan.timeline[activityIndex];
     const topic = workshopPlan.title.ar.replace("ورشة: ", "");
 
-    const systemPrompt = `You are an expert workshop facilitator. Generate a SINGLE workshop activity in Arabic.
+    const _legacySystemPrompt = `You are an expert workshop facilitator. Generate a SINGLE workshop activity in Arabic.
 
 Return ONLY valid JSON (no markdown):
 {
@@ -580,6 +490,41 @@ Return ONLY valid JSON (no markdown):
   "instructions": ["خطوة 1", "خطوة 2", "خطوة 3", "خطوة 4"],
   "facilitatorTips": "نصيحة للميسر"
 }`;
+
+    const systemPrompt = `You are an expert workshop facilitator. Generate a SINGLE workshop activity in Arabic using the NEW V3 schema.
+
+Return ONLY valid JSON (no markdown). REQUIRED fields for this activity:
+{
+  "timeRange": "${currentActivity.timeRange}",
+  "title": "Arabic short title",
+  "titleEn": "English title",
+  "description": "Arabic description (1-2 sentences)",
+  "blockType": "${currentActivity.blockType || ""}",
+
+  "activityType": "One of the ActivityType values used in this app",
+  "energyLevel": "high" | "medium" | "low",
+  "complexityLevel": "simple" | "moderate" | "complex",
+
+  "whatYouNeed": ["materials in kid-friendly Arabic"],
+  "mainSteps": ["Step 1", "Step 2", "Step 3"],
+  "estimatedSteps": 3,
+  "visualCues": ["cue1", "cue2", "cue3"],
+  "spokenPhrases": ["phrase1", "phrase2", "phrase3"],
+
+  "lifeSkillsFocus": ["confidence", "bravery", "friendship"],
+  "confidenceBuildingMoment": "Describe the exact moment confidence grows",
+  "whyItMatters": "One Arabic sentence on developmental benefit",
+
+  "facilitatorTips": "Arabic facilitator tip",
+  "variations": ["optional variation 1", "optional variation 2"],
+  "safetyTips": "Arabic safety note",
+  "debriefQuestions": ["question1", "question2"]
+}
+
+CRITICAL:
+- Use "mainSteps" NOT "instructions".
+- mainSteps must be 3-5 items.
+- estimatedSteps must equal mainSteps length.`;
 
     const userPrompt = `Generate a NEW activity to replace this one in a workshop about "${topic}":
 
@@ -596,13 +541,16 @@ ${customInstructions ? `Special instructions: ${customInstructions}` : ""}
 
 Create a DIFFERENT, creative activity that fits the same time slot and workshop theme!`;
 
+
     const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: DEFAULT_OPENAI_MODEL,
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        max_completion_tokens: 2000,
+        max_completion_tokens: 3000,
+        response_format: { type: "json_object" },
+        temperature: 0.9,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -612,13 +560,9 @@ Create a DIFFERENT, creative activity that fits the same time slot and workshop 
     }
 
     try {
-        return JSON.parse(content) as WorkshopActivity;
-    } catch {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]) as WorkshopActivity;
-        }
-        throw new Error("Failed to parse activity JSON");
+        return parseJsonFromModel<WorkshopActivity>(content, false);
+    } catch (e) {
+        throw new Error(`Failed to parse activity JSON: ${e}`);
     }
 }
 
@@ -632,7 +576,7 @@ export async function generateAlternatives(
     const currentActivity = workshopPlan.timeline[activityIndex];
     const topic = workshopPlan.title.ar.replace("ورشة: ", "");
 
-    const systemPrompt = `You are an expert workshop facilitator. Generate 3 DIFFERENT activity alternatives in Arabic.
+    const _legacySystemPrompt = `You are an expert workshop facilitator. Generate 3 DIFFERENT activity alternatives in Arabic.
 
 Return ONLY a JSON array (no markdown):
 [
@@ -647,6 +591,20 @@ Return ONLY a JSON array (no markdown):
   ...
 ]`;
 
+    const systemPrompt = `You are an expert workshop facilitator. Generate 3 DIFFERENT activity alternatives in Arabic using the NEW V3 schema.
+
+Return ONLY a JSON array of 3 objects (no markdown). Each object MUST include:
+- timeRange (same as slot)
+- title (Arabic), titleEn (English), description (Arabic)
+- activityType, energyLevel, complexityLevel
+- whatYouNeed, mainSteps (3-5), estimatedSteps, visualCues (3+), spokenPhrases (3+)
+- lifeSkillsFocus, confidenceBuildingMoment, whyItMatters
+- facilitatorTips, variations, safetyTips, debriefQuestions
+
+CRITICAL:
+- Use "mainSteps" NOT "instructions".
+- Make each alternative clearly different from the current activity and from each other.`;
+
     const userPrompt = `Generate 3 DIFFERENT alternative activities for this slot in a "${topic}" workshop:
 
 Time slot: ${currentActivity.timeRange}
@@ -657,12 +615,13 @@ Position: Activity ${activityIndex + 1} of ${workshopPlan.timeline.length}
 Make each alternative unique and creative!`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: DEFAULT_OPENAI_MODEL,
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        max_completion_tokens: 4000,
+        max_completion_tokens: 7000,
+        temperature: 0.9,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -672,13 +631,9 @@ Make each alternative unique and creative!`;
     }
 
     try {
-        return JSON.parse(content) as WorkshopActivity[];
-    } catch {
-        const jsonMatch = content.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]) as WorkshopActivity[];
-        }
-        throw new Error("Failed to parse alternatives JSON");
+        return parseJsonFromModel<WorkshopActivity[]>(content, true);
+    } catch (e) {
+        throw new Error(`Failed to parse alternatives JSON: ${e}`);
     }
 }
 
@@ -724,12 +679,13 @@ Each idea should be:
 - Fun and engaging`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: DEFAULT_OPENAI_MODEL,
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
         max_completion_tokens: 4000,
+        temperature: 0.9,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -739,13 +695,9 @@ Each idea should be:
     }
 
     try {
-        return JSON.parse(content) as WorkshopIdea[];
-    } catch {
-        const jsonMatch = content.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]) as WorkshopIdea[];
-        }
-        throw new Error("Failed to parse ideas JSON");
+        return parseJsonFromModel<WorkshopIdea[]>(content, true);
+    } catch (e) {
+        throw new Error(`Failed to parse ideas JSON: ${e}`);
     }
 }
 
@@ -755,89 +707,30 @@ Each idea should be:
 /**
  * Generate an enhanced visual description for a poster based on workshop details
  */
+
+
 /**
- * Generate an enhanced visual description for a poster based on workshop details
+ * Video segment for Sora-2 generation (max 15 seconds each)
  */
-export async function enhancePosterPrompt(input: {
-    topic: string;
-    workshopPlan: WorkshopPlanData;
-    date?: string;
-    time?: string;
-    place?: string;
-}): Promise<{ visualPrompt: string; explanation: string }> {
-    const systemPrompt = `You are an expert creative director for children's educational events in Tunisia.
-    
-    Your task is to analyze a FULL WORKSHOP PLAN and create a RICH, VISUAL SCENE for a poster.
-    
-    CRITICAL: The user wants an "Ad-Ready" poster.
-    1. VISUALS: Visualize the specific activities (e.g. Robot building -> Show a robot).
-       - SETTING: A generic but modern "Cultural Center" in Tunisia. Bright, Mediterranean light, vibrant colors.
-       - CHARACTERS: Diverse Tunisian children (North African features).
-    2. TEXT: The user wants specific ARABIC TEXT included in the design.
-       - Include instructions to place the Date, Time, and Location clearly.
-       - IF the Date/Time provided is "TBD", do NOT write "Date: TBD" in the image. Instead, leave space for it or write "Date: [Date]".
-       - IF Date/Time IS provided, MUST use the exact values.
-    
-    The visual prompt should be in English (for the image generator), but explicitly mention the Arabic text content to be shown.
-    
-    Return ONLY JSON:
-    {
-      "visualPrompt": "A detailed scene description... including text instructions...",
-      "explanation": "..."
-    }`;
+export interface VideoSegment {
+    segmentNumber: number;          // 1-4
+    duration: number;                // 10-15 seconds
+    soraPrompt: string;             // Detailed Sora-2 prompt (main field!)
+    sceneDescription: string;        // What happens (Arabic)
+    visualElements: string[];        // Key visual elements
+    cameraMovement: string;          // "pan right", "zoom in", etc.
+    mood: string;                    // "joyful", "calm", "energetic"
+    voiceoverText: string;           // Arabic narration
+}
 
-    const hasSpecificDate = input.date && input.date !== "TBD";
-    const hasSpecificTime = input.time && input.time !== "TBD";
-
-    const userPrompt = `Analyze this plan and create a poster visualization:
-    
-    Topic: ${input.topic}
-    Title: ${input.workshopPlan.title.ar}
-    
-    Logistic Details (MUST BE INCLUDED IN IMAGE TEXT if available):
-    - Date: ${input.date || "(To Be Verified)"}
-    - Time: ${input.time || "(To Be Verified)"}
-    - Location: ${input.place || "Dar Takafa Ben Arous"}
-    
-    Key Activities:
-    ${input.workshopPlan.timeline.map(a => `- ${a.titleEn}: ${a.description}`).join("\n")}
-    
-    Materials involved:
-    ${input.workshopPlan.materials.join(", ")}
-    
-    Create a specific, unique visual scene. Ensure the prompt explicitly asks for the Arabic title "${input.workshopPlan.title.ar}".
-    ${hasSpecificDate ? `Ask to include the date: ${input.date}` : "Do NOT ask for specific date text yet."}
-    ${input.place ? `Ask to include location: ${input.place}` : ""}
-    Style: High-end 3D Pixar Style, set in a bright Tunisian cultural club.`;
-
-    const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini",
-        messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-        ],
-        temperature: 1,
-    });
-
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-        console.error("❌ OpenAI Activity Gen Empty:", JSON.stringify(completion, null, 2));
-        throw new Error("No response from OpenAI");
-    }
-
-    try {
-        return JSON.parse(content);
-    } catch {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
-        }
-        // Fallback
-        return {
-            visualPrompt: `A professional poster for ${input.topic} featuring the title "${input.workshopPlan.title.ar}" prominently in Arabic typography, with a ${input.workshopPlan.generalInfo.ageGroup} year old child engaging in creative activities.`,
-            explanation: "تصميم يتضمن النص العربي"
-        };
-    }
+/**
+ * Video content collection for each daily tip (4 segments = ~54 seconds)
+ */
+export interface DailyVideoContent {
+    day: number;                     // 1-6
+    theme: string;                   // "brain science", "teamwork", etc.
+    segments: VideoSegment[];        // ALWAYS 4 segments
+    transitionNotes: string;         // How to combine (Arabic)
 }
 
 /**
@@ -851,6 +744,7 @@ export interface DailyTip {
     instagramCaption: string; // Ready-to-post Instagram caption with emojis and hashtags
     instagramStoryText: string; // Short text for Instagram stories (1-2 sentences)
     imagePrompt: string; // English prompt for image generation with Arabic text
+    videoContent: DailyVideoContent; // NEW: Sora-2 video prompts
 }
 
 export async function generateDailyTips(topic: string, workshopTitle: string): Promise<DailyTip[]> {
@@ -911,6 +805,49 @@ Each post MUST include:
    - CORNER: "الطفل القائد" small branding
    - Text integrated beautifully into the design with readable contrast
 
+🎬 VIDEO CONTENT REQUIREMENTS (CRITICAL - REQUIRED FOR ALL TIPS):
+
+For each of the 6 days, create EXACTLY 4 video segments for Sora-2:
+
+**Segment Structure (MANDATORY 4 segments):**
+- Segment 1 (12 sec): Opening Hook - Capture attention, establish setting
+- Segment 2 (15 sec): Main Concept - Show developmental principle in action
+- Segment 3 (15 sec): Practical Example - Real-life demonstration with interaction
+- Segment 4 (12 sec): Call-to-Action - Encourage parents to try today
+- **Total**: 54 seconds per day
+
+**Sora-2 Prompt Requirements (VERY IMPORTANT):**
+- Style: Cinematic 3D Pixar/Disney animation quality
+- Characters: Tunisian parent + child (age 6-10)
+- Setting: Warm Mediterranean home with traditional blue zellige tiles
+- Lighting: Golden hour, warm afternoon sun
+- Camera: Describe specific movements (dolly, zoom, arc, push)
+- Emotions: Explicitly state emotions (joy, curiosity, pride, love)
+- Actions: Be VERY specific about what characters DO
+- Duration: End each prompt with "Duration: X seconds"
+- Quality: Rich detail, professional cinematography language
+
+**Example Excellent Segment:**
+{
+  "segmentNumber": 2,
+  "duration": 15,
+  "soraPrompt": "Cinematic 3D Pixar scene: A Tunisian mother and 8-year-old son sit cross-legged on a traditional woven rug in their living room. Blue zellige tiles frame an arched doorway behind them. The mother holds up a colorful storybook while the boy points excitedly at illustrations. Golden afternoon light streams through the window. The mother's eyes light up as she follows his finger, nodding with encouragement. The boy's face shows pure wonder and engagement. Camera: Medium shot, slow 30-degree arc around them. Emotion: connection, curiosity, shared discovery. Style: Warm Pixar animation with soft rim lighting. Duration: 15 seconds.",
+  "sceneDescription": "الأم والطفل يتشاركان قراءة قصة، مما يعزز التواصل والخيال",
+  "visualElements": ["storybook", "pointing gesture", "eye contact", "zellige tiles", "warm rug", "golden light"],
+  "cameraMovement": "30-degree arc around subjects",
+  "mood": "curious, engaged",
+  "voiceoverText": "القراءة المشتركة تبني مهارات اللغة والخيال بطريقة ممتعة"
+}
+
+**JSON Structure:**
+Each day MUST have "videoContent" object with:
+- day: number (1-6)
+- theme: string (developmental focus like "teamwork", "emotional intelligence", "creativity")
+- segments: array of EXACTLY 4 VideoSegment objects
+- transitionNotes: string (Arabic - how to combine segments, e.g., "استخدم تحولات crossfade بسيطة (0.5 ثانية) بين المشاهد")
+
+⚠️ CRITICAL: Generate videoContent for ALL 6 days. This is a REQUIRED field.
+
 🎯 THE 6-DAY "هل تعلم؟" THEMES:
 
 Day 1 - 🧠 BRAIN SCIENCE:
@@ -966,12 +903,13 @@ For "الإبداع":
 Generate the 6 posts now:`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: DEFAULT_OPENAI_MODEL,
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        max_completion_tokens: 12000, // Increased to avoid hitting token limit
+        max_completion_tokens: 24000, // Increased for video content: ~12K reasoning + ~12K output
+        temperature: 0.95,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -981,13 +919,17 @@ Generate the 6 posts now:`;
     }
 
     try {
-        const jsonMatch = content.match(/\[[\s\S]*\]/);
-        let tips: DailyTip[];
-        if (jsonMatch) {
-            tips = JSON.parse(jsonMatch[0]);
-        } else {
-            tips = JSON.parse(content);
-        }
+        const tips = parseJsonFromModel<DailyTip[]>(content, true);
+
+        // 🎬 VIDEO CONTENT CHECK
+        console.log("\n🎬 VIDEO CONTENT CHECK:");
+        tips.forEach((tip, i) => {
+            if (tip.videoContent) {
+                console.log(`  ✅ Day ${i + 1}: ${tip.videoContent.segments?.length || 0} segments`);
+            } else {
+                console.log(`  ❌ Day ${i + 1}: NO VIDEO CONTENT`);
+            }
+        });
 
         // 📊 LOG THE GENERATED CONTENT FOR DEBUGGING
         console.log("\n" + "=".repeat(60));
@@ -1002,6 +944,7 @@ Generate the 6 posts now:`;
             console.log(`   📝 ${tip.titleEn || ''}`);
             console.log(`   📱 Instagram: ${(tip.instagramCaption || '').substring(0, 80)}...`);
             console.log(`   🎨 Image: ${(tip.imagePrompt || '').substring(0, 100)}...`);
+            console.log(`   🎬 Video: ${tip.videoContent ? `✅ ${tip.videoContent.segments?.length || 0} segments` : '❌ MISSING'}`);
         });
 
         console.log("\n" + "=".repeat(60) + "\n");
@@ -1014,3 +957,136 @@ Generate the 6 posts now:`;
     }
 }
 
+export async function enhancePosterPrompt(input: {
+    topic: string;
+    workshopPlan: WorkshopPlanData;
+    date?: string;
+    time?: string;
+    place?: string;
+}): Promise<{ visualPrompt: string; explanation: string }> {
+    const systemPrompt = `You are an expert creative director for children's educational events in Tunisia.
+    
+    Your task is to analyze a FULL WORKSHOP PLAN and create a RICH, VISUAL SCENE for a poster.
+    
+    CRITICAL: The user wants an "Ad-Ready" poster.
+    1. VISUALS: Visualize the specific activities (e.g. Robot building -> Show a robot).
+       - SETTING: A generic but modern "Cultural Center" in Tunisia. Bright, Mediterranean light, vibrant colors.
+       - CHARACTERS: Diverse Tunisian children (North African features).
+    2. TEXT: The user wants specific ARABIC TEXT included in the design.
+       - Include instructions to place the Date, Time, and Location clearly.
+       - IF the Date/Time provided is "TBD", do NOT write "Date: TBD" in the image. Instead, leave space for it or write "Date: [Date]".
+       - IF Date/Time IS provided, MUST use the exact values.
+    
+    The visual prompt should be in English (for the image generator), but explicitly mention the Arabic text content to be shown.
+    
+    Return ONLY JSON:
+    {
+      "visualPrompt": "A detailed scene description... including text instructions...",
+      "explanation": "..."
+    }`;
+
+    const userPrompt = `Analyze this plan and create a poster visualization:
+    
+    Topic: ${input.topic}
+    Title: ${input.workshopPlan.title.ar}
+    
+    Logistic Details (MUST BE INCLUDED IN IMAGE TEXT if available):
+    - Date: ${input.date || "(To Be Verified)"}
+    - Time: ${input.time || "(To Be Verified)"}
+    - Location: ${input.place || "Dar Takafa Ben Arous"}
+    
+    Workshop Highlights:
+    ${input.workshopPlan.timeline.slice(0, 3).map(a => `- ${a.title}: ${a.description}`).join('\n')}
+    `;
+
+    const model = DEFAULT_OPENAI_MODEL;
+
+    try {
+        const completion = await openai.chat.completions.create({
+            model,
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+            ],
+            max_completion_tokens: 10000,
+            response_format: { type: "json_object" },
+            temperature: 1,
+        });
+
+        const content = completion.choices[0]?.message?.content;
+
+        if (!content) {
+            console.error("❌ OpenAI Poster Gen Empty. Full Response:", JSON.stringify(completion, null, 2));
+            throw new Error("No response from OpenAI");
+        }
+
+        // Clean control characters before parsing
+        const cleanContent = content.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+        return JSON.parse(cleanContent);
+    } catch (e) {
+        console.error("Failed to generate/parse poster prompt", e);
+        // Fallback
+        return {
+            visualPrompt: `A professional poster for ${input.topic} featuring the title "${input.workshopPlan.title.ar}" prominently in Arabic typography, with a ${input.workshopPlan.generalInfo.ageGroup} year old child engaging in creative activities.`,
+            explanation: "تصميم يتضمن النص العربي"
+        };
+    }
+}
+
+/**
+ * Export the exact V3 workshop prompts for manual use in ChatGPT UI.
+ * Useful when you want to run the same prompt with a higher‑tier model.
+ */
+export function exportWorkshopPromptsForUI(
+    input: WorkshopInput,
+    format: PromptOutputFormat = "json"
+): { systemPrompt: string; userPrompt: string } {
+    const ageInfo = AGE_DESCRIPTORS[input.ageRange];
+    const durationNum = parseInt(input.duration);
+
+    const materialsContext = input.selectedMaterialNames && input.selectedMaterialNames.length > 0
+        ? `\n\n# ÐY"Ý AVAILABLE MATERIALS (MUST USE THESE IN ACTIVITIES):\n${input.selectedMaterialNames.map(m => `- ${m}`).join('\n')}\n\n**IMPORTANT**: Design activities that CREATIVELY USE these materials - especially craft supplies!`
+        : `\n\n# ÐY"Ý RECOMMENDED MATERIALS:\n
+**Craft & Making:**
+- Recyclables: plastic cups, cardboard boxes, bottle caps, newspapers
+- Basic craft: colored paper, scissors, glue, markers, tape
+- Process art: string, paint, sponges, cotton balls, bubble solution
+
+**Movement:**
+- Balls, balloons, scarves, cones, hula hoops, bean bags
+
+**Reflection:**
+- Cushions, emotion cards, story cards
+
+**FOCUS**: Use cheap, accessible materials for creative MAKING activities (not just games)!`;
+
+    const activityLibraryPrompt = buildActivityExamplesPrompt(input.topic);
+
+    const promptConfig: WorkshopPromptConfig = {
+        durationMinutes: durationNum,
+        ageRange: input.ageRange,
+        ageDescriptionAr: ageInfo.ar,
+        ageDescriptionEn: ageInfo.en,
+        activityLibraryPrompt,
+        materialsContext
+    };
+
+    if (format === "text") {
+        return {
+            systemPrompt: buildWorkshopTextSystemPrompt(promptConfig),
+            userPrompt: buildWorkshopTextUserPrompt(input.topic, durationNum, ageInfo),
+        };
+    }
+
+    if (format === "json") {
+        return {
+            systemPrompt: buildWorkshopJSONSystemPrompt(promptConfig),
+            userPrompt: buildWorkshopJSONUserPrompt(input.topic, durationNum, ageInfo),
+        };
+    }
+
+    return {
+        systemPrompt: buildWorkshopSystemPrompt(promptConfig),
+        userPrompt: buildWorkshopUserPrompt(input.topic, durationNum, ageInfo),
+    };
+}

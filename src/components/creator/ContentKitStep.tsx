@@ -5,6 +5,7 @@ import { Button, Card, Input, useToast } from "@/components/ui";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import type { CreatorState } from "@/app/create/page";
 import type { DailyTip } from "@/lib/ai/openai";
+import VideoPromptsDisplay from "@/components/VideoPromptsDisplay";
 
 interface ContentKitStepProps {
     state: CreatorState;
@@ -333,6 +334,13 @@ export function ContentKitStep({
                                     </div>
                                 )}
                             </div>
+
+                            {/* NEW: Video Prompts Section */}
+                            {tip.videoContent && (
+                                <div className="mt-4 pt-4 border-t border-border">
+                                    <VideoPromptsDisplay videoContent={tip.videoContent} />
+                                </div>
+                            )}
                         </div>
                     </Card>
                 ))}
