@@ -4,8 +4,9 @@ import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui";
 import { ActivityRegenerator } from "@/components/ActivityRegenerator";
 import type { WorkshopPlanData, WorkshopInput, WorkshopActivity } from "@/app/workshop/page";
+import type { WorkshopPlanData as BaseWorkshopPlanData } from "@/lib/ai/providers/base";
 import { PDFDownloadLink } from "@react-pdf/renderer";
-import { WorkshopPDF } from "@/components/pdf/WorkshopPDF";
+import { EnhancedWorkshopPDF } from "@/components/pdf/EnhancedWorkshopPDF";
 
 interface WorkshopPlanProps {
     plan: WorkshopPlanData;
@@ -66,11 +67,11 @@ export function WorkshopPlan({
                         </Button>
                         {isClient && (
                             <PDFDownloadLink
-                                document={<WorkshopPDF plan={plan} input={input} />}
-                                fileName={`workshop-${input.topic.replace(/\s+/g, '-')}.pdf`}
+                                document={<EnhancedWorkshopPDF plan={plan as unknown as BaseWorkshopPlanData} />}
+                                fileName={`workshop-${input.topic.replace(/\s+/g, '-')}-enhanced.pdf`}
                             >
                                 {({ blob, url, loading, error }) => (
-                                    <Button loading={loading}>
+                                    <Button variant="gradient" loading={loading}>
                                         {loading ? "جاري التحضير..." : "تحميل PDF"}
                                     </Button>
                                 )}

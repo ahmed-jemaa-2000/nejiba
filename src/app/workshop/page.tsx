@@ -18,6 +18,15 @@ export interface WorkshopActivity {
     description: string;
     instructions: string[]; // Kept for backward compatibility
     detailedSteps?: string[]; // New detailed steps
+    // V3 enhanced fields (optional, for richer plans/PDF)
+    activityType?: string;
+    mainSteps?: string[]; // 3-5 clear steps
+    whatYouNeed?: string[];
+    visualCues?: string[];
+    spokenPhrases?: string[];
+    lifeSkillsFocus?: string[];
+    whyItMatters?: string;
+    confidenceBuildingMoment?: string;
     facilitatorTips?: string;
     // Game metadata
     energyLevel?: "🔋" | "🔋🔋" | "🔋🔋🔋" | string;

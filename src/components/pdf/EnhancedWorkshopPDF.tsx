@@ -136,13 +136,19 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     infoGrid: {
-        flexDirection: 'row',
+        flexDirection: 'row-reverse', // RTL grid
         flexWrap: 'wrap',
         marginBottom: 15,
+        gap: 8,
     },
     infoItem: {
-        width: '50%',
+        width: '48%',
         marginBottom: 8,
+        backgroundColor: colors.gray,
+        borderWidth: 1,
+        borderColor: colors.light + '30',
+        borderRadius: 8,
+        padding: 10,
     },
     infoLabel: {
         fontSize: 10,
@@ -365,25 +371,27 @@ interface EnhancedWorkshopPDFProps {
 }
 
 export const EnhancedWorkshopPDF: React.FC<EnhancedWorkshopPDFProps> = ({ plan }) => {
-    // Get energy color
-    const getEnergyColor = (level?: string) => {
-        if (level === 'high') return colors.highEnergy;
-        if (level === 'low') return colors.lowEnergy;
-        return colors.mediumEnergy;
+    // Get energy theme (background + border)
+    const getEnergyTheme = (level?: string) => {
+        const normalized = (level || '').toString().toLowerCase();
+        if (normalized === 'high') return { bg: colors.highEnergy, border: '#FCA5A5' };
+        if (normalized === 'low') return { bg: colors.lowEnergy, border: '#6EE7B7' };
+        return { bg: colors.mediumEnergy, border: '#FCD34D' };
     };
+
+    const getSteps = (activity: WorkshopPlanData["timeline"][number]): string[] =>
+        activity.mainSteps ??
+        activity.instructions ??
+        activity.detailedSteps ??
+        activity.setupSteps ??
+        [];
 
     return (
         <Document>
             {/* Cover Page */}
             <Page size="A4" style={styles.coverPage}>
-                <View style={styles.coverTitle}>
-                    <Text>{plan.title.ar}</Text>
-                </View>
-                {plan.title.en && (
-                    <View style={styles.coverSubtitle}>
-                        <Text>{plan.title.en}</Text>
-                    </View>
-                )}
+                <Text style={styles.coverTitle}>{plan.title.ar}</Text>
+                {plan.title.en && <Text style={styles.coverSubtitle}>{plan.title.en}</Text>}
 
                 {/* Introduction - Prominent Display */}
                 {plan.introduction && (
@@ -468,7 +476,11 @@ export const EnhancedWorkshopPDF: React.FC<EnhancedWorkshopPDFProps> = ({ plan }
                             {plan.materials.map((material, i) => (
                                 <View key={i} style={styles.materialChip}>
                                     <Text style={styles.materialText}>
-                                        {typeof material === 'string' ? material : material.item}
+                                        {typeof material === 'string'
+                                            ? material
+                                            : material.quantity
+                                                ? `${material.item} (${material.quantity})`
+                                                : material.item}
                                     </Text>
                                 </View>
                             ))}
@@ -487,8 +499,10 @@ export const EnhancedWorkshopPDF: React.FC<EnhancedWorkshopPDFProps> = ({ plan }
                             style={[
                                 styles.activityCard,
                                 {
-                                    backgroundColor: getEnergyColor(activity.energyLevel),
-                                    borderColor: getEnergyColor(activity.energyLevel).replace('E2', 'A0')
+                                    backgroundColor: getEnergyTheme(activity.energyLevel).bg,
+                                    borderColor: getEnergyTheme(activity.energyLevel).border,
+                                    borderRightWidth: 4,
+                                    borderRightColor: colors.primary,
                                 }
                             ]}
                         >
@@ -512,10 +526,10 @@ export const EnhancedWorkshopPDF: React.FC<EnhancedWorkshopPDFProps> = ({ plan }
                             <Text style={styles.activityDescription}>{activity.description}</Text>
 
                             {/* Main Steps */}
-                            {activity.mainSteps && activity.mainSteps.length > 0 && (
+                            {getSteps(activity).length > 0 && (
                                 <View style={styles.stepsList}>
                                     <Text style={styles.stepsTitle}>الخطوات:</Text>
-                                    {activity.mainSteps.map((step, si) => (
+                                    {getSteps(activity).map((step, si) => (
                                         <View key={si} style={{ flexDirection: 'row-reverse', marginBottom: 4, paddingRight: 10 }}>
                                             <Text style={{ fontSize: 10, fontFamily: 'NotoSansArabic', color: colors.accent, marginLeft: 5 }}>
                                                 .{si + 1}
