@@ -123,6 +123,12 @@ export default function Home() {
           >
             🎬 فيديو الورشة
           </Link>
+          <Link
+            href="/video"
+            className="px-4 py-2 text-sm text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors font-medium"
+          >
+            ✨ فيديو أمل
+          </Link>
         </div>
 
         {/* Footer */}
