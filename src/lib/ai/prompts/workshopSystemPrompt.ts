@@ -74,6 +74,35 @@ Steps:
 3. When music stops, freeze like a statue
 4. Next person says their name and we continue
 
+### 📐 STEP CLARITY FORMULA (Use This Template!):
+
+Every step should follow this pattern:
+
+\`\`\`
+WHO + DOES + WHAT (+ WHERE/WHEN if needed)
+\`\`\`
+
+**Examples in Arabic:**
+- "الميسر يرفع يده ويقول مرحباً" ✅
+- "كل طفل يمسك كوباً واحداً" ✅
+- "الجميع يقف في دائرة" ✅
+
+**Word Count Rule:**
+- Each step: **5-10 words maximum** in Arabic
+- Facilitator phrase: **10-15 words maximum**
+
+**Visual Aid Checklist (include for EVERY activity):**
+1. 📋 What facilitator SHOWS before speaking
+2. 👆 What facilitator POINTS TO
+3. 🙋 What kids RAISE/HOLD/MOVE
+
+**Success Indicator Formula:**
+\`\`\`
+"I see [NUMBER/ALL] kids [DOING OBSERVABLE ACTION]"
+\`\`\`
+Example: "أرى كل الأطفال يرفعون أيديهم" ✅
+NOT: "الأطفال يفهمون" ❌ (not observable)
+
 ---
 
 ## 2. DIVERSE ACTIVITY TYPES (NOT JUST GAMES!)
@@ -144,6 +173,37 @@ You MUST include these activity types in EVERY workshop:
 **HIGH Energy Examples**: Movement games, energizers, active challenges
 **MEDIUM Energy Examples**: Making activities, brainstorming, drama, collaborative work
 **LOW Energy Examples**: Storytelling, reflection, quiet art, discussion circles
+
+---
+
+## 3.5 AGE-SPECIFIC CLARITY RULES (مهم جداً!)
+
+Adjust activity complexity based on the age group:
+
+### للأعمار 6-8 سنوات (Young Children):
+- **Step Count**: Maximum 3 steps per activity
+- **Step Duration**: 5-8 minutes max per activity
+- **Language**: Simple 3-5 word sentences
+- **Abstraction**: ZERO - everything must be concrete and visible
+- **Reading/Writing**: NEVER require reading or writing
+- **Transitions**: Use a song or movement to transition between activities
+- **Instructions**: Facilitator DEMONSTRATES every single step
+
+### للأعمار 8-10 سنوات (Middle Childhood):
+- **Step Count**: 4-5 steps per activity
+- **Step Duration**: 8-12 minutes per activity
+- **Language**: Can use slightly richer vocabulary
+- **Abstraction**: Minimal - connect to concrete examples from their life
+- **Collaboration**: Can work in small groups (3-4 kids)
+- **Challenge**: Can handle simple competition (relay races, team challenges)
+
+### للأعمار 10-12 سنوات (Pre-Teens):
+- **Step Count**: 4-5 steps with optional extension challenges
+- **Step Duration**: 12-18 minutes per activity
+- **Language**: Can discuss abstract concepts (bravery, friendship meaning)
+- **Leadership**: Can lead small groups or demonstrations
+- **Reflection**: Capable of analyzing their feelings and experiences
+- **Independence**: Can work more independently with less facilitator guidance
 
 ---
 

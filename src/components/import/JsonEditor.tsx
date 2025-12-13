@@ -50,9 +50,10 @@ export function JsonEditor({ value, onChange, errors, placeholder }: JsonEditorP
 
     return (
         <Card variant="bordered" padding="none" className="relative">
-            <div className="flex">
+            {/* Fixed height container with internal scrolling */}
+            <div className="flex h-[500px] overflow-auto">
                 {/* Line numbers */}
-                <div className="flex flex-col bg-background-tertiary text-foreground-secondary text-xs font-mono p-4 select-none border-r border-border">
+                <div className="sticky left-0 flex flex-col bg-background-tertiary text-foreground-secondary text-xs font-mono p-4 select-none border-r border-border">
                     {Array.from({ length: lineCount }, (_, i) => (
                         <div key={i} className="leading-6 text-right min-w-[2rem]">{i + 1}</div>
                     ))}
@@ -66,14 +67,14 @@ export function JsonEditor({ value, onChange, errors, placeholder }: JsonEditorP
                         onChange={(e) => onChange(e.target.value)}
                         onPaste={handlePaste}
                         placeholder={placeholder || "الصق JSON هنا..."}
-                        className="w-full p-4 bg-transparent text-foreground font-mono text-sm leading-6 resize-none focus:outline-none"
-                        style={{ minHeight: '400px', tabSize: 2 }}
+                        className="w-full h-full p-4 bg-transparent text-foreground font-mono text-sm leading-6 resize-none focus:outline-none"
+                        style={{ minHeight: `${lineCount * 24 + 32}px`, tabSize: 2 }}
                         dir="ltr"
                         spellCheck={false}
                     />
 
                     {/* Format button */}
-                    <div className="absolute top-2 right-2 flex gap-2">
+                    <div className="absolute top-2 right-2 flex gap-2 z-10">
                         <Button
                             size="sm"
                             variant="secondary"

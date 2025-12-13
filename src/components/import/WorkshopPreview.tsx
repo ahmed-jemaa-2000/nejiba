@@ -226,6 +226,140 @@ export function WorkshopPreview({ plan }: WorkshopPreviewProps) {
                     )}
                 </Card>
             )}
+
+            {/* Kids Benefits Section */}
+            {(plan as any).kidsBenefits && (
+                <div className="space-y-4">
+                    <h3 className="font-bold text-foreground text-xl flex items-center gap-2">
+                        <span>🌟</span>
+                        فوائد الورشة للأطفال
+                    </h3>
+
+                    {/* Summary */}
+                    {(plan as any).kidsBenefits.summaryAr && (
+                        <Card variant="bordered" padding="md" className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
+                            <p className="text-lg text-foreground leading-relaxed">
+                                {(plan as any).kidsBenefits.summaryAr}
+                            </p>
+                        </Card>
+                    )}
+
+                    {/* Benefits Grid */}
+                    <div className="grid md:grid-cols-2 gap-4">
+                        {/* Cognitive */}
+                        {(plan as any).kidsBenefits.cognitive && (
+                            <Card variant="bordered" padding="md" className="bg-blue-50 dark:bg-blue-900/20">
+                                <h4 className="font-bold text-blue-700 dark:text-blue-300 mb-2">
+                                    🧠 {(plan as any).kidsBenefits.cognitive.title || "التطور الذهني"}
+                                </h4>
+                                <ul className="space-y-1">
+                                    {((plan as any).kidsBenefits.cognitive.skills || []).map((skill: string, i: number) => (
+                                        <li key={i} className="text-sm text-blue-600 dark:text-blue-400 flex gap-2">
+                                            <span>•</span>
+                                            <span>{skill}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </Card>
+                        )}
+
+                        {/* Emotional */}
+                        {(plan as any).kidsBenefits.emotional && (
+                            <Card variant="bordered" padding="md" className="bg-pink-50 dark:bg-pink-900/20">
+                                <h4 className="font-bold text-pink-700 dark:text-pink-300 mb-2">
+                                    ❤️ {(plan as any).kidsBenefits.emotional.title || "النمو العاطفي"}
+                                </h4>
+                                <ul className="space-y-1">
+                                    {((plan as any).kidsBenefits.emotional.skills || []).map((skill: string, i: number) => (
+                                        <li key={i} className="text-sm text-pink-600 dark:text-pink-400 flex gap-2">
+                                            <span>•</span>
+                                            <span>{skill}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </Card>
+                        )}
+
+                        {/* Social */}
+                        {(plan as any).kidsBenefits.social && (
+                            <Card variant="bordered" padding="md" className="bg-green-50 dark:bg-green-900/20">
+                                <h4 className="font-bold text-green-700 dark:text-green-300 mb-2">
+                                    🤝 {(plan as any).kidsBenefits.social.title || "المهارات الاجتماعية"}
+                                </h4>
+                                <ul className="space-y-1">
+                                    {((plan as any).kidsBenefits.social.skills || []).map((skill: string, i: number) => (
+                                        <li key={i} className="text-sm text-green-600 dark:text-green-400 flex gap-2">
+                                            <span>•</span>
+                                            <span>{skill}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </Card>
+                        )}
+
+                        {/* Physical */}
+                        {(plan as any).kidsBenefits.physical && (
+                            <Card variant="bordered" padding="md" className="bg-yellow-50 dark:bg-yellow-900/20">
+                                <h4 className="font-bold text-yellow-700 dark:text-yellow-300 mb-2">
+                                    💪 {(plan as any).kidsBenefits.physical.title || "التطور الجسدي"}
+                                </h4>
+                                <ul className="space-y-1">
+                                    {((plan as any).kidsBenefits.physical.skills || []).map((skill: string, i: number) => (
+                                        <li key={i} className="text-sm text-yellow-600 dark:text-yellow-400 flex gap-2">
+                                            <span>•</span>
+                                            <span>{skill}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </Card>
+                        )}
+
+                        {/* Character */}
+                        {(plan as any).kidsBenefits.character && (
+                            <Card variant="bordered" padding="md" className="bg-purple-50 dark:bg-purple-900/20 md:col-span-2">
+                                <h4 className="font-bold text-purple-700 dark:text-purple-300 mb-2">
+                                    ⭐ {(plan as any).kidsBenefits.character.title || "بناء الشخصية"}
+                                </h4>
+                                <ul className="space-y-1">
+                                    {((plan as any).kidsBenefits.character.skills || []).map((skill: string, i: number) => (
+                                        <li key={i} className="text-sm text-purple-600 dark:text-purple-400 flex gap-2">
+                                            <span>•</span>
+                                            <span>{skill}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </Card>
+                        )}
+                    </div>
+
+                    {/* Parent Tips */}
+                    {(plan as any).kidsBenefits.parentTips && (plan as any).kidsBenefits.parentTips.length > 0 && (
+                        <Card variant="bordered" padding="md" className="bg-orange-50 dark:bg-orange-900/20">
+                            <h4 className="font-bold text-orange-700 dark:text-orange-300 mb-2">
+                                👨‍👩‍👧 نصائح للأهل
+                            </h4>
+                            <ul className="space-y-1">
+                                {(plan as any).kidsBenefits.parentTips.map((tip: string, i: number) => (
+                                    <li key={i} className="text-sm text-orange-600 dark:text-orange-400 flex gap-2">
+                                        <span>•</span>
+                                        <span>{tip}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </Card>
+                    )}
+
+                    {/* Long Term Impact */}
+                    {(plan as any).kidsBenefits.longTermImpact && (
+                        <Card variant="bordered" padding="md" className="bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20">
+                            <p className="text-foreground flex items-start gap-2">
+                                <span className="text-xl">🚀</span>
+                                <span className="leading-relaxed">{(plan as any).kidsBenefits.longTermImpact}</span>
+                            </p>
+                        </Card>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

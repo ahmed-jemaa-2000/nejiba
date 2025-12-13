@@ -27,6 +27,84 @@ export default function ImportPage() {
     const [isValidating, setIsValidating] = useState(false);
     const { showToast } = useToast();
 
+    // Poster prompt generator state
+    const [posterFormat, setPosterFormat] = useState<"facebook" | "instagram">("facebook");
+    const [posterDate, setPosterDate] = useState("");
+    const [posterTime, setPosterTime] = useState("");
+    const [posterPlace, setPosterPlace] = useState("دار الثقافة بن عروس");
+    const [generatedPosterPrompt, setGeneratedPosterPrompt] = useState<string | null>(null);
+    const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+
+    // Generate Nanobanana poster prompt from workshop data
+    const generatePosterPrompt = useCallback(() => {
+        if (!parsedWorkshop) return;
+
+        setIsGeneratingPrompt(true);
+
+        // Extract workshop info
+        const title = parsedWorkshop.title?.ar || "ورشة أطفال";
+        const titleEn = parsedWorkshop.title?.en || "Kids Workshop";
+        const ageGroup = parsedWorkshop.generalInfo?.ageGroup || "8-10 سنوات";
+        const duration = parsedWorkshop.generalInfo?.duration || "90 دقيقة";
+
+        // Get first 3 activities
+        const activities = (parsedWorkshop.timeline || [])
+            .slice(0, 3)
+            .map(a => a.title)
+            .join(" | ");
+
+        // Get materials (first 6)
+        const materials = (parsedWorkshop.materials || [])
+            .slice(0, 6)
+            .map(m => typeof m === 'string' ? m : m.item)
+            .join(", ");
+
+        // Format dimensions
+        const aspectRatio = posterFormat === "facebook" ? "16:9 horizontal" : "9:16 vertical (portrait)";
+        const resolution = posterFormat === "facebook" ? "1200x675" : "1080x1920";
+
+        // Build the Nanobanana prompt
+        const prompt = `Children's creative workshop promotional poster design.
+
+WORKSHOP DETAILS:
+- Title: "${title}" (${titleEn})
+- Target: Children ${ageGroup}
+- Duration: ${duration}
+${posterDate ? `- Date: ${posterDate}` : ""}
+${posterTime ? `- Time: ${posterTime}` : ""}
+${posterPlace ? `- Location: ${posterPlace}` : ""}
+
+ACTIVITIES & THEME:
+${activities}
+
+MATERIALS FEATURED:
+${materials}
+
+VISUAL STYLE:
+- Modern, vibrant, child-friendly poster design
+- Bright cheerful colors (purple, blue, orange, green)
+- Playful 3D or illustrated style
+- Clean readable Arabic typography
+- Fun decorative elements (stars, shapes, confetti)
+- Workshop activity illustrations or icons
+- Welcoming and exciting atmosphere
+
+TECHNICAL:
+- Format: ${aspectRatio}
+- Resolution: ${resolution}
+- Professional quality, print-ready
+- Bold title text, clear event information
+- Leave space for date/time/location text overlay
+
+DO NOT include: realistic photographs, scary elements, dark themes`;
+
+        setTimeout(() => {
+            setGeneratedPosterPrompt(prompt);
+            setIsGeneratingPrompt(false);
+            showToast("تم إنشاء البرومبت بنجاح!", "success");
+        }, 500);
+    }, [parsedWorkshop, posterFormat, posterDate, posterTime, posterPlace, showToast]);
+
     // Handle JSON input change
     const handleJsonChange = useCallback((value: string) => {
         setJsonInput(value);
@@ -265,6 +343,122 @@ export default function ImportPage() {
                                 </div>
                             </div>
                             <WorkshopPreview plan={parsedWorkshop} />
+                        </div>
+
+                        {/* Poster Prompt Generator Section */}
+                        <div className="mb-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <span className="text-3xl">🎨</span>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-foreground">إنشاء برومبت للملصق</h2>
+                                    <p className="text-sm text-foreground-secondary">Generate Nanobanana Poster Prompt</p>
+                                </div>
+                            </div>
+
+                            <Card variant="bordered" padding="md" className="space-y-4">
+                                {/* Format Selection */}
+                                <div>
+                                    <label className="text-sm font-medium text-foreground mb-2 block">📐 صيغة الملصق</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPosterFormat("facebook")}
+                                            className={`p-3 rounded-xl border-2 transition-all ${posterFormat === "facebook"
+                                                ? "border-accent bg-accent/10"
+                                                : "border-border hover:border-accent/50"
+                                                }`}
+                                        >
+                                            <span className="text-xl block mb-1">📘</span>
+                                            <p className="font-medium text-foreground text-sm">فيسبوك 16:9</p>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPosterFormat("instagram")}
+                                            className={`p-3 rounded-xl border-2 transition-all ${posterFormat === "instagram"
+                                                ? "border-accent bg-accent/10"
+                                                : "border-border hover:border-accent/50"
+                                                }`}
+                                        >
+                                            <span className="text-xl block mb-1">📸</span>
+                                            <p className="font-medium text-foreground text-sm">إنستغرام 9:16</p>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Date & Time */}
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-sm font-medium text-foreground mb-2 block">📅 التاريخ</label>
+                                        <input
+                                            type="date"
+                                            value={posterDate}
+                                            onChange={(e) => setPosterDate(e.target.value)}
+                                            className="w-full p-3 bg-background-secondary border border-border rounded-xl focus:border-accent focus:ring-1 focus:ring-accent"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-foreground mb-2 block">⏰ الوقت</label>
+                                        <input
+                                            type="time"
+                                            value={posterTime}
+                                            onChange={(e) => setPosterTime(e.target.value)}
+                                            className="w-full p-3 bg-background-secondary border border-border rounded-xl focus:border-accent focus:ring-1 focus:ring-accent"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Place */}
+                                <div>
+                                    <label className="text-sm font-medium text-foreground mb-2 block">📍 المكان</label>
+                                    <input
+                                        type="text"
+                                        value={posterPlace}
+                                        onChange={(e) => setPosterPlace(e.target.value)}
+                                        placeholder="دار الثقافة بن عروس"
+                                        className="w-full p-3 bg-background-secondary border border-border rounded-xl focus:border-accent focus:ring-1 focus:ring-accent"
+                                    />
+                                </div>
+
+                                {/* Generate Button */}
+                                <Button
+                                    variant="gradient"
+                                    onClick={generatePosterPrompt}
+                                    loading={isGeneratingPrompt}
+                                    fullWidth
+                                    size="lg"
+                                >
+                                    <span className="text-xl ml-2">🎨</span>
+                                    إنشاء برومبت للملصق (Nanobanana)
+                                </Button>
+
+                                {/* Generated Prompt Display */}
+                                {generatedPosterPrompt && (
+                                    <div className="space-y-3 animate-in fade-in duration-300">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="font-bold text-foreground">📋 Nanobanana Prompt</h4>
+                                            <Button
+                                                variant="primary"
+                                                size="sm"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(generatedPosterPrompt);
+                                                    showToast("تم نسخ البرومبت!", "success");
+                                                }}
+                                            >
+                                                📋 نسخ البرومبت
+                                            </Button>
+                                        </div>
+                                        <pre
+                                            dir="ltr"
+                                            className="whitespace-pre-wrap text-sm bg-gray-900 text-green-400 p-4 rounded-xl border border-green-700 max-h-[400px] overflow-auto font-mono"
+                                        >
+                                            {generatedPosterPrompt}
+                                        </pre>
+                                        <p className="text-xs text-foreground-secondary text-center">
+                                            انسخ هذا البرومبت والصقه في Nanobanana أو أي مولد صور AI
+                                        </p>
+                                    </div>
+                                )}
+                            </Card>
                         </div>
                     </>
                 )}

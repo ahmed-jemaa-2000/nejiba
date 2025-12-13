@@ -3,7 +3,7 @@
  * 
  * Generates for each workshop:
  * - 4 nanobanana Image Prompts (one per scene)
- * - 4 Veo 3 Video Prompts (15 seconds each = 60 seconds total)
+ * - 4 Sora 2 Video Prompts (15 seconds each = 60 seconds total)
  * 
  * Character: نور (Noor) - 8-year-old Pixar-style Middle Eastern girl
  */
@@ -23,6 +23,10 @@ export interface Scene {
     duration: number; // 15 seconds each
 }
 
+export interface AdPromptOptions {
+    includeCharacter?: boolean; // Default: true (include Noor)
+}
+
 export interface AdPrompts {
     workshopTitle: string;
     workshopTitleEn: string;
@@ -30,6 +34,7 @@ export interface AdPrompts {
     totalDuration: string;
     scenes: Scene[];
     summary: string;
+    includeCharacter: boolean;
 }
 
 // ============================================================================
@@ -131,14 +136,16 @@ function extractWorkshopData(workshop: WorkshopPlanData): WorkshopExtract {
 function generateSceneImagePrompt(
     sceneTemplate: SceneTemplate,
     sceneNumber: number,
-    workshopData: WorkshopExtract
+    workshopData: WorkshopExtract,
+    includeCharacter: boolean = true
 ): string {
     // Get relevant activity for this scene
     const activity = workshopData.activities[sceneNumber - 1] || workshopData.activities[0];
     const activityDesc = activity?.title || "workshop activity";
     const materials = workshopData.mainMaterials.slice(0, 2).join(", ") || "craft supplies";
 
-    return `Pixar-Disney 3D animated style illustration - SCENE ${sceneNumber}/4:
+    if (includeCharacter) {
+        return `Pixar-Disney 3D animated style illustration - SCENE ${sceneNumber}/4:
 
 CHARACTER: Noor (نور)
 - 8-year-old Middle Eastern girl
@@ -171,8 +178,53 @@ STYLE:
 
 COMPOSITION:
 - ${sceneNumber === 1 ? 'Wide shot to establish scene' :
-            sceneNumber === 4 ? 'Dynamic celebratory pose' :
-                'Medium shot focused on action'}
+                sceneNumber === 4 ? 'Dynamic celebratory pose' :
+                    'Medium shot focused on action'}
+- Rule of thirds placement
+- Space at bottom for text overlay
+
+WORKSHOP: "${workshopData.titleAr}"`;
+    }
+
+    // No-character version - focus on hands, materials, activities
+    const noCharacterDescriptions = [
+        `Close-up of colorful craft materials arranged invitingly on a table - ${materials}`,
+        `Hands actively engaged in ${activityDesc}, showing the creative process with ${materials}`,
+        `Beautiful work-in-progress shot showing ${materials} being transformed into art`,
+        `Stunning finished creation on display, surrounded by sparkles and confetti`
+    ];
+
+    return `Pixar-Disney 3D animated style illustration - SCENE ${sceneNumber}/4:
+
+FOCUS: Creative Activity (No Character)
+
+MAIN SUBJECT:
+${noCharacterDescriptions[sceneNumber - 1]}
+
+SCENE: "${sceneTemplate.titleAr}" (${sceneTemplate.title})
+
+ENVIRONMENT:
+- Bright, colorful Arabic-style workshop room
+- Warm natural lighting from windows
+- Colorful rugs and cushions
+- Child-friendly organized workspace
+- Soft bokeh background
+
+PROPS VISIBLE: ${materials}
+
+MOOD: ${sceneTemplate.mood}
+
+STYLE:
+- Pixar/Disney 3D render quality
+- Hyper-detailed, cinema lighting
+- Soft shadows, vibrant saturated colors
+- 4K, professional studio quality
+- Focus on textures and materials
+
+COMPOSITION:
+- ${sceneNumber === 1 ? 'Wide establishing shot of workshop' :
+            sceneNumber === 4 ? 'Dramatic reveal of finished work' :
+                'Close-up on hands and materials'}
 - Rule of thirds placement
 - Space at bottom for text overlay
 
@@ -180,19 +232,63 @@ WORKSHOP: "${workshopData.titleAr}"`;
 }
 
 // ============================================================================
-// VIDEO PROMPT GENERATOR (Veo 3)
+// VIDEO PROMPT GENERATOR (Sora 2)
 // ============================================================================
 
 function generateSceneVideoPrompt(
     sceneTemplate: SceneTemplate,
     sceneNumber: number,
-    workshopData: WorkshopExtract
+    workshopData: WorkshopExtract,
+    includeCharacter: boolean = true
 ): string {
     const activity = workshopData.activities[sceneNumber - 1] || workshopData.activities[0];
     const activityDesc = activity?.title || "workshop activity";
+    const materials = workshopData.mainMaterials.slice(0, 2).join(", ") || "craft supplies";
     const isLast = sceneNumber === 4;
 
-    return `Veo 3 - 15-SECOND ANIMATED SCENE (${sceneNumber}/4)
+    if (!includeCharacter) {
+        // No-character version - focus on materials and activities
+        const noCharActions = [
+            `Camera slowly pans across colorful ${materials} arranged on a craft table, sunlight streaming in`,
+            `Close-up of hands picking up materials, beginning to create, smooth deliberate movements`,
+            `Time-lapse style: materials being transformed, colors blending, creation taking shape`,
+            `Final reveal: completed artwork slowly rotating, sparkle effects, triumphant moment`
+        ];
+
+        return `Sora 2 - 15-SECOND ANIMATED SCENE (${sceneNumber}/4) - NO CHARACTER
+
+===== FOCUS: MATERIALS & ACTIVITY =====
+
+[0:00 - 0:15] CONTINUOUS ACTION
+${noCharActions[sceneNumber - 1]}
+
+SCENE: ${sceneTemplate.title}
+MOOD: ${sceneTemplate.mood}
+
+===== ENVIRONMENT =====
+- Bright, colorful Arabic-style workshop room
+- Warm natural lighting
+- Clean, organized craft space
+- Soft background blur
+
+===== CAMERA WORK =====
+- ${sceneTemplate.cameraMove}
+- Smooth, cinematic movement
+- Focus on materials and hands (if shown)
+
+===== TECHNICAL =====
+- Style: Pixar 3D animation, cinema quality
+- Frame rate: 24fps, smooth motion
+- Lighting: Warm, consistent throughout
+- Audio sync: Designed for upbeat background music
+
+${isLast ? `===== ENDING =====
+- Text fades in: "${workshopData.titleAr}"
+- Sparkle effects around finished creation
+- Call to action space` : ''}`;
+    }
+
+    return `Sora 2 - 15-SECOND ANIMATED SCENE (${sceneNumber}/4)
 
 ===== CHARACTER =====
 Noor (نور) - Same appearance in ALL 4 scenes:
@@ -242,25 +338,30 @@ This is scene ${sceneNumber} of 4. ${sceneNumber < 4
 // MAIN GENERATOR
 // ============================================================================
 
-export function generateAdPrompts(workshop: WorkshopPlanData): AdPrompts {
+export function generateAdPrompts(
+    workshop: WorkshopPlanData,
+    options: AdPromptOptions = {}
+): AdPrompts {
+    const { includeCharacter = true } = options;
     const data = extractWorkshopData(workshop);
 
     const scenes: Scene[] = SCENE_TEMPLATES.map((template, index) => ({
         sceneNumber: index + 1,
         title: template.title,
         titleAr: template.titleAr,
-        imagePrompt: generateSceneImagePrompt(template, index + 1, data),
-        videoPrompt: generateSceneVideoPrompt(template, index + 1, data),
+        imagePrompt: generateSceneImagePrompt(template, index + 1, data, includeCharacter),
+        videoPrompt: generateSceneVideoPrompt(template, index + 1, data, includeCharacter),
         duration: 15
     }));
 
     return {
         workshopTitle: data.titleAr,
         workshopTitleEn: data.titleEn,
-        characterName: "نور (Noor)",
+        characterName: includeCharacter ? "نور (Noor)" : "بدون شخصية",
         totalDuration: "60 ثانية (4 مقاطع × 15 ثانية)",
         scenes,
-        summary: `إعلان ورشة "${data.titleAr}" - 4 مشاهد - ${data.duration} - للأطفال ${data.ageGroup}`
+        summary: `إعلان ورشة "${data.titleAr}" - 4 مشاهد - ${data.duration} - للأطفال ${data.ageGroup}`,
+        includeCharacter
     };
 }
 
@@ -272,7 +373,7 @@ export const ENHANCEMENT_SYSTEM_PROMPT = `You are an expert prompt engineer for 
 
 Your task is to enhance prompts for:
 1. nanobanana (image generation) - Focus on visual details, lighting, composition
-2. Veo 3 (video generation) - Focus on motion, timing, camera movements
+2. Sora 2 (video generation) - Focus on motion, timing, camera movements
 
 Keep the core concept but make prompts more detailed and effective.
 Always maintain:

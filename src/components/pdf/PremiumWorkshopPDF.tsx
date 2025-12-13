@@ -412,9 +412,17 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     benefitIcon: {
-        fontSize: 24,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: colors.white,
+        fontSize: 16,
+        fontWeight: 'bold',
         textAlign: 'center',
+        lineHeight: 32,
         marginBottom: 8,
+        alignSelf: 'center',
+        borderWidth: 2,
     },
     benefitTitle: {
         fontSize: 12,
@@ -565,8 +573,45 @@ export const PremiumWorkshopPDF: React.FC<PremiumWorkshopPDFProps> = ({ plan }) 
         activity.setupSteps ??
         [];
 
-    // Type guard for kidsBenefits
-    const kidsBenefits = (plan as any).kidsBenefits;
+    // Type guard for kidsBenefits - with fallback generation
+    const rawKidsBenefits = (plan as any).kidsBenefits;
+
+    // Generate fallback benefits from life skills if kidsBenefits is missing
+    const kidsBenefits = rawKidsBenefits || (() => {
+        // Extract all life skills from activities
+        const allSkills = plan.timeline?.flatMap(a => a.lifeSkillsFocus || []) || [];
+        const uniqueSkills = [...new Set(allSkills)];
+
+        // Only generate if we have some skills to show
+        if (uniqueSkills.length === 0) return null;
+
+        return {
+            summaryAr: `هذه الورشة تساعد الأطفال على تطوير مهارات حياتية مهمة من خلال أنشطة ممتعة وتفاعلية`,
+            cognitive: {
+                title: 'التطور الذهني',
+                skills: uniqueSkills.filter(s =>
+                    s.includes('تفكير') || s.includes('إبداع') || s.includes('حل') || s.includes('تركيز')
+                ).slice(0, 3) || ['التفكير الإبداعي', 'حل المشكلات']
+            },
+            emotional: {
+                title: 'النمو العاطفي',
+                skills: uniqueSkills.filter(s =>
+                    s.includes('ثقة') || s.includes('شجاعة') || s.includes('عاطف') || s.includes('مشاعر')
+                ).slice(0, 3) || ['الثقة بالنفس', 'التعبير عن المشاعر']
+            },
+            social: {
+                title: 'المهارات الاجتماعية',
+                skills: uniqueSkills.filter(s =>
+                    s.includes('تعاون') || s.includes('صداقة') || s.includes('مشاركة') || s.includes('تواصل')
+                ).slice(0, 3) || ['التعاون', 'المشاركة']
+            },
+            parentTips: [
+                'اسأل طفلك عن أكثر شيء أعجبه في الورشة',
+                'شجعه على تطبيق ما تعلمه في المنزل',
+                'احتفل بمحاولاته وليس فقط نتائجه'
+            ]
+        };
+    })();
 
     return (
         <Document>
@@ -786,7 +831,7 @@ export const PremiumWorkshopPDF: React.FC<PremiumWorkshopPDFProps> = ({ plan }) 
                         {/* Cognitive */}
                         {kidsBenefits.cognitive && (
                             <View style={[styles.benefitCard, { backgroundColor: colors.cognitiveLight }]}>
-                                <Text style={styles.benefitIcon}>[ذهني]</Text>
+                                <Text style={[styles.benefitIcon, { color: colors.cognitive }]}>1</Text>
                                 <Text style={[styles.benefitTitle, { color: colors.cognitive }]}>
                                     {kidsBenefits.cognitive.title || 'التطور الذهني'}
                                 </Text>
@@ -799,7 +844,7 @@ export const PremiumWorkshopPDF: React.FC<PremiumWorkshopPDFProps> = ({ plan }) 
                         {/* Emotional */}
                         {kidsBenefits.emotional && (
                             <View style={[styles.benefitCard, { backgroundColor: colors.emotionalLight }]}>
-                                <Text style={styles.benefitIcon}>[عاطفي]</Text>
+                                <Text style={[styles.benefitIcon, { color: colors.emotional }]}>2</Text>
                                 <Text style={[styles.benefitTitle, { color: colors.emotional }]}>
                                     {kidsBenefits.emotional.title || 'النمو العاطفي'}
                                 </Text>
@@ -812,7 +857,7 @@ export const PremiumWorkshopPDF: React.FC<PremiumWorkshopPDFProps> = ({ plan }) 
                         {/* Social */}
                         {kidsBenefits.social && (
                             <View style={[styles.benefitCard, { backgroundColor: colors.socialLight }]}>
-                                <Text style={styles.benefitIcon}>[اجتماعي]</Text>
+                                <Text style={[styles.benefitIcon, { color: colors.social }]}>3</Text>
                                 <Text style={[styles.benefitTitle, { color: colors.social }]}>
                                     {kidsBenefits.social.title || 'المهارات الاجتماعية'}
                                 </Text>
@@ -825,7 +870,7 @@ export const PremiumWorkshopPDF: React.FC<PremiumWorkshopPDFProps> = ({ plan }) 
                         {/* Physical */}
                         {kidsBenefits.physical && (
                             <View style={[styles.benefitCard, { backgroundColor: colors.physicalLight }]}>
-                                <Text style={styles.benefitIcon}>[جسدي]</Text>
+                                <Text style={[styles.benefitIcon, { color: colors.physical }]}>4</Text>
                                 <Text style={[styles.benefitTitle, { color: colors.physical }]}>
                                     {kidsBenefits.physical.title || 'التطور الجسدي'}
                                 </Text>
@@ -838,7 +883,7 @@ export const PremiumWorkshopPDF: React.FC<PremiumWorkshopPDFProps> = ({ plan }) 
                         {/* Character */}
                         {kidsBenefits.character && (
                             <View style={[styles.benefitCard, { backgroundColor: colors.characterLight, width: '100%' }]}>
-                                <Text style={styles.benefitIcon}>[شخصية]</Text>
+                                <Text style={[styles.benefitIcon, { color: colors.character }]}>5</Text>
                                 <Text style={[styles.benefitTitle, { color: colors.character }]}>
                                     {kidsBenefits.character.title || 'بناء الشخصية'}
                                 </Text>

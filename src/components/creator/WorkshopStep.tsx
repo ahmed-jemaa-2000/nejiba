@@ -1,14 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button, Card, Select, useToast } from "@/components/ui";
 import { WorkshopPlan } from "@/components/WorkshopPlan";
-import {
-    MATERIALS_LIBRARY,
-    MATERIAL_CATEGORIES,
-    getMaterialsByCategory,
-    suggestMaterialsForTopic
-} from "@/lib/workshop/materials";
 import type { CreatorState } from "@/app/create/page";
 import type { WorkshopPlanData, WorkshopActivity } from "@/app/workshop/page";
 
@@ -49,7 +43,6 @@ export function WorkshopStep({
 }: WorkshopStepProps) {
     const [error, setError] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
-    const [expandedCategory, setExpandedCategory] = useState<string | null>("basic");
     const [promptPreview, setPromptPreview] = useState<{ systemPrompt: string; userPrompt: string } | null>(null);
     const [isPromptOpen, setIsPromptOpen] = useState(false);
     const [isPromptLoading, setIsPromptLoading] = useState(false);
@@ -57,36 +50,6 @@ export function WorkshopStep({
     const [isJsonPromptOpen, setIsJsonPromptOpen] = useState(false);
     const [isJsonPromptLoading, setIsJsonPromptLoading] = useState(false);
     const { showToast } = useToast();
-
-    // Auto-suggest materials based on topic
-    useEffect(() => {
-        if (state.topic && state.selectedMaterials.length === 0) {
-            const suggestions = suggestMaterialsForTopic(state.topic);
-            updateState({ selectedMaterials: suggestions });
-        }
-    }, [state.topic]);
-
-    const toggleMaterial = (materialId: string) => {
-        const current = state.selectedMaterials;
-        const updated = current.includes(materialId)
-            ? current.filter(id => id !== materialId)
-            : [...current, materialId];
-        updateState({ selectedMaterials: updated });
-    };
-
-    const selectAll = (category: string) => {
-        const categoryMaterials = getMaterialsByCategory(category as any).map(m => m.id);
-        const current = state.selectedMaterials;
-        const allSelected = categoryMaterials.every(id => current.includes(id));
-
-        if (allSelected) {
-            // Deselect all from this category
-            updateState({ selectedMaterials: current.filter(id => !categoryMaterials.includes(id)) });
-        } else {
-            // Select all from this category
-            updateState({ selectedMaterials: [...new Set([...current, ...categoryMaterials])] });
-        }
-    };
 
     const previewPrompts = async () => {
         if (!state.topic) return;
@@ -286,103 +249,53 @@ export function WorkshopStep({
                 </div>
             </Card>
 
-            {/* MATERIALS SELECTOR - NEW */}
+            {/* Generate Button Section - Simplified for non-technical users */}
             {!state.workshopPlan && (
                 <Card variant="bordered" padding="md">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
-                            <span>🧰</span>
-                            اختر المواد المتاحة
-                            <span className="text-foreground-secondary font-normal text-sm">Select Materials</span>
-                        </h3>
-                        <span className="text-sm text-accent bg-accent/10 px-3 py-1 rounded-full">
-                            {state.selectedMaterials.length} مادة مختارة
-                        </span>
-                    </div>
-
-                    <p className="text-sm text-foreground-secondary mb-4">
-                        اختر المواد المتاحة لديك وسيقوم الذكاء الاصطناعي بتصميم أنشطة تناسب هذه المواد
-                    </p>
-
-                    {/* Category Tabs */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                        {MATERIAL_CATEGORIES.map(cat => {
-                            const categoryMaterials = getMaterialsByCategory(cat.id as any);
-                            const selectedCount = categoryMaterials.filter(m =>
-                                state.selectedMaterials.includes(m.id)
-                            ).length;
-
-                            return (
-                                <button
-                                    key={cat.id}
-                                    onClick={() => setExpandedCategory(expandedCategory === cat.id ? null : cat.id)}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-200 ${expandedCategory === cat.id
-                                        ? "border-accent bg-accent/10 text-accent"
-                                        : "border-border hover:border-accent/50 text-foreground-secondary"
-                                        }`}
-                                >
-                                    <span>{cat.icon}</span>
-                                    <span className="text-sm">{cat.name}</span>
-                                    {selectedCount > 0 && (
-                                        <span className="text-xs bg-accent text-white px-2 py-0.5 rounded-full">
-                                            {selectedCount}
-                                        </span>
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    {/* Materials Grid */}
-                    {expandedCategory && (
-                        <div className="space-y-3 animate-in fade-in duration-200">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-medium text-foreground">
-                                    {MATERIAL_CATEGORIES.find(c => c.id === expandedCategory)?.name}
-                                </h4>
-                                <button
-                                    onClick={() => selectAll(expandedCategory)}
-                                    className="text-xs text-accent hover:underline"
-                                >
-                                    تحديد/إلغاء الكل
-                                </button>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                {getMaterialsByCategory(expandedCategory as any).map(material => (
-                                    <button
-                                        key={material.id}
-                                        onClick={() => toggleMaterial(material.id)}
-                                        className={`p-3 rounded-xl border text-start transition-all duration-200 ${state.selectedMaterials.includes(material.id)
-                                            ? "border-accent bg-accent/10 text-foreground"
-                                            : "border-border hover:border-accent/30 text-foreground-secondary hover:text-foreground"
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xl">{material.icon}</span>
-                                            <div>
-                                                <p className="text-sm font-medium">{material.name}</p>
-                                                <p className="text-xs opacity-60">{material.nameEn}</p>
-                                            </div>
-                                            {state.selectedMaterials.includes(material.id) && (
-                                                <span className="mr-auto text-accent">✓</span>
-                                            )}
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
+                    {/* MAIN ACTION: JSON Prompts for ChatGPT - BIG and prominent */}
+                    <div className="mb-6">
+                        <div className="text-center mb-3">
+                            <h4 className="text-lg font-bold text-foreground">الخطوة التالية: انسخ واستخدم في ChatGPT</h4>
+                            <p className="text-sm text-foreground-secondary">اضغط هنا للحصول على النص الجاهز للنسخ</p>
                         </div>
-                    )}
+                        <Button
+                            onClick={previewJsonPrompts}
+                            loading={isJsonPromptLoading}
+                            fullWidth
+                            variant="gradient"
+                            size="lg"
+                        >
+                            <span className="text-xl ml-2">📋</span>
+                            معاينة JSON Prompts للاستخدام في ChatGPT
+                        </Button>
+                    </div>
 
-                    {/* Generate Button */}
-                    <div className="mt-6 pt-4 border-t border-border flex flex-col gap-2">
-                        <Button onClick={previewPrompts} loading={isPromptLoading} fullWidth variant="secondary">
-                            ªîëSî õë"ë.ð¦ë^ë% (Prompt) ï÷ë. õë"©úë^¸
+                    {/* Divider */}
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="flex-1 h-px bg-border"></div>
+                        <span className="text-xs text-foreground-secondary">أو</span>
+                        <div className="flex-1 h-px bg-border"></div>
+                    </div>
+
+                    {/* Secondary options - smaller, grouped */}
+                    <div className="flex gap-2">
+                        <Button
+                            onClick={previewPrompts}
+                            loading={isPromptLoading}
+                            variant="ghost"
+                            size="sm"
+                            className="flex-1 text-xs"
+                        >
+                            معاينة Prompt فقط
                         </Button>
-                        <Button onClick={previewJsonPrompts} loading={isJsonPromptLoading} fullWidth variant="secondary">
-                            📋 معاينة JSON Prompts للاستخدام في ChatGPT
-                        </Button>
-                        <Button onClick={generatePlan} loading={isGenerating} fullWidth variant="gradient">
-                            ✨ إنشاء خطة الورشة المفصّلة
+                        <Button
+                            onClick={generatePlan}
+                            loading={isGenerating}
+                            variant="secondary"
+                            size="sm"
+                            className="flex-1 text-xs"
+                        >
+                            ✨ إنشاء تلقائي (AI)
                         </Button>
                     </div>
                 </Card>
