@@ -7,6 +7,8 @@
  */
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button, Card, useToast } from "@/components/ui";
 import { ImportInstructions } from "@/components/import/ImportInstructions";
 import { JsonEditor } from "@/components/import/JsonEditor";
@@ -20,12 +22,23 @@ import type { WorkshopPlanData } from "@/lib/ai/providers/base";
 import type { ValidationResult } from "@/lib/validation/workshopValidator";
 
 export default function ImportPage() {
+    const router = useRouter();
     const [jsonInput, setJsonInput] = useState("");
     const [parsedWorkshop, setParsedWorkshop] = useState<WorkshopPlanData | null>(null);
     const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
     const [importMode, setImportMode] = useState<"paste" | "upload">("paste");
     const [isValidating, setIsValidating] = useState(false);
     const { showToast } = useToast();
+
+    // Navigate to video page with workshop data
+    const goToVideo = useCallback(() => {
+        if (!parsedWorkshop) return;
+
+        // Save to localStorage for /video page to pick up
+        localStorage.setItem('nejiba_current_workshop', JSON.stringify(parsedWorkshop));
+        showToast("جاري الانتقال لصفحة الفيديو...", "success");
+        router.push('/video');
+    }, [parsedWorkshop, router, showToast]);
 
     // Poster prompt generator state
     const [posterFormat, setPosterFormat] = useState<"facebook" | "instagram">("facebook");
@@ -345,7 +358,7 @@ DO NOT include: realistic photographs, scary elements, dark themes`;
                         <div className="mb-6">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="text-2xl font-bold text-foreground">معاينة الورشة</h2>
-                                <div className="flex gap-3">
+                                <div className="flex gap-3 flex-wrap">
                                     <Button variant="secondary" onClick={handleSave}>
                                         💾 حفظ في المتصفح
                                     </Button>
@@ -355,10 +368,17 @@ DO NOT include: realistic photographs, scary elements, dark themes`;
                                     >
                                         {({ loading }) => (
                                             <Button variant="gradient" loading={loading}>
-                                                📄 تحميل PDF محسّن
+                                                📄 PDF
                                             </Button>
                                         )}
                                     </PDFDownloadLink>
+                                    <Button
+                                        variant="primary"
+                                        onClick={goToVideo}
+                                        className="bg-purple-600 hover:bg-purple-700"
+                                    >
+                                        🎬 فيديو أمل
+                                    </Button>
                                 </div>
                             </div>
                             <WorkshopPreview plan={parsedWorkshop} />

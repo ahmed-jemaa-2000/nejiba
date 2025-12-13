@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { Button, Card, useToast } from "@/components/ui";
-import type { VideoScriptOutput, VideoScene, Character } from "@/lib/ai/prompts/amalVideoGenerator";
+import type { VideoScriptOutput, VideoScene } from "@/lib/ai/prompts/amalVideoGenerator";
 import type { WorkshopPlanData } from "@/lib/ai/providers/base";
 
 export default function VideoPage() {
@@ -27,6 +27,48 @@ export default function VideoPage() {
     const [copiedScene, setCopiedScene] = useState<number | null>(null);
 
     const { showToast } = useToast();
+
+    // Auto-load workshop from localStorage (when coming from /import)
+    useEffect(() => {
+        const savedWorkshop = localStorage.getItem('nejiba_current_workshop');
+        if (savedWorkshop) {
+            try {
+                const parsed: WorkshopPlanData = JSON.parse(savedWorkshop);
+                setImportedWorkshop(parsed);
+
+                // Auto-fill form
+                if (parsed.title?.ar) {
+                    setWorkshopTitle(parsed.title.ar);
+                }
+                if (parsed.generalInfo?.ageGroup) {
+                    setAgeGroup(parsed.generalInfo.ageGroup);
+                }
+                if (parsed.generalInfo?.duration) {
+                    setDuration(parsed.generalInfo.duration);
+                }
+
+                // Extract activities from timeline
+                const timelineActivities = (parsed.timeline || [])
+                    .filter((act: any) => {
+                        const type = String(act.activityType || act.blockType || '').toLowerCase();
+                        return !type.includes('intro') && !type.includes('closing') && !type.includes('opener');
+                    })
+                    .slice(0, 4)
+                    .map((act: any) => act.title);
+
+                if (timelineActivities.length > 0) {
+                    setActivities(timelineActivities.join("\n"));
+                }
+
+                // Clear localStorage after loading
+                localStorage.removeItem('nejiba_current_workshop');
+
+                showToast("تم تحميل بيانات الورشة تلقائياً ✅", "success");
+            } catch (e) {
+                console.error("Failed to load workshop from localStorage:", e);
+            }
+        }
+    }, [showToast]);
 
     // Handle JSON import
     const handleJsonImport = useCallback(() => {
@@ -445,6 +487,12 @@ export default function VideoPage() {
                                 isCopied={copiedScene === scene.sceneNumber}
                                 onCopyVeo={() => copyPrompt(scene, 'veo')}
                                 onCopyArabic={() => copyPrompt(scene, 'arabic')}
+                                onCopyImage={() => {
+                                    navigator.clipboard.writeText(scene.imagePrompt);
+                                    setCopiedScene(scene.sceneNumber);
+                                    showToast("تم نسخ Image Prompt ✓", "success");
+                                    setTimeout(() => setCopiedScene(null), 2000);
+                                }}
                             />
                         ))}
 
@@ -490,13 +538,16 @@ function SceneCard({
     isCopied,
     onCopyVeo,
     onCopyArabic,
+    onCopyImage,
 }: {
     scene: VideoScene;
     isCopied: boolean;
     onCopyVeo: () => void;
     onCopyArabic: () => void;
+    onCopyImage: () => void;
 }) {
     const [showVeoPrompt, setShowVeoPrompt] = useState(false);
+    const [showImagePrompt, setShowImagePrompt] = useState(false);
 
     const sceneColors: Record<string, string> = {
         welcome: "from-blue-50 to-cyan-50 border-blue-200",
@@ -509,7 +560,7 @@ function SceneCard({
         <Card
             variant="bordered"
             padding="md"
-            className={`bg - gradient - to - r ${sceneColors[scene.sceneType] || 'border-border'} ${isCopied ? 'ring-2 ring-accent' : ''} `}
+            className={`bg-gradient-to-r ${sceneColors[scene.sceneType] || 'border-border'} ${isCopied ? 'ring-2 ring-accent' : ''}`}
         >
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
@@ -527,7 +578,7 @@ function SceneCard({
                 )}
             </div>
 
-            {/* Arabic Script */}
+            {/* 1. Arabic Voiceover Script */}
             <div className="mb-4 p-4 bg-white/60 rounded-xl border border-white">
                 <div className="flex items-center justify-between mb-2">
                     <h5 className="text-sm font-bold text-foreground">🎤 النص العربي (Voiceover)</h5>
@@ -538,12 +589,12 @@ function SceneCard({
                 <p className="text-foreground leading-relaxed">"{scene.arabicScript}"</p>
             </div>
 
-            {/* Veo Prompt Toggle */}
+            {/* 2. Nanobanana Image Prompt Toggle */}
             <button
-                onClick={() => setShowVeoPrompt(!showVeoPrompt)}
-                className="w-full flex items-center justify-between p-3 bg-white/40 rounded-xl hover:bg-white/60 transition-colors"
+                onClick={() => setShowImagePrompt(!showImagePrompt)}
+                className="w-full flex items-center justify-between p-3 bg-white/40 rounded-xl hover:bg-white/60 transition-colors mb-2"
             >
-                <span className="font-medium text-foreground">🎬 Veo 2 Prompt</span>
+                <span className="font-medium text-foreground">🖼️ Nanobanana Image Prompt</span>
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="20"
@@ -552,7 +603,43 @@ function SceneCard({
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
-                    className={`transition - transform ${showVeoPrompt ? 'rotate-180' : ''} `}
+                    className={`transition-transform ${showImagePrompt ? 'rotate-180' : ''}`}
+                >
+                    <path d="m6 9 6 6 6-6" />
+                </svg>
+            </button>
+
+            {showImagePrompt && (
+                <div className="mb-3 animate-in fade-in duration-200">
+                    <div className="flex justify-end mb-2">
+                        <Button variant="primary" size="sm" onClick={onCopyImage}>
+                            📋 نسخ Image Prompt
+                        </Button>
+                    </div>
+                    <pre
+                        dir="ltr"
+                        className="text-xs bg-indigo-900 text-cyan-300 p-4 rounded-xl overflow-auto max-h-48 font-mono whitespace-pre-wrap"
+                    >
+                        {scene.imagePrompt}
+                    </pre>
+                </div>
+            )}
+
+            {/* 3. Veo 2 Video Prompt Toggle */}
+            <button
+                onClick={() => setShowVeoPrompt(!showVeoPrompt)}
+                className="w-full flex items-center justify-between p-3 bg-white/40 rounded-xl hover:bg-white/60 transition-colors"
+            >
+                <span className="font-medium text-foreground">🎬 Veo 2 / Sora Video Prompt</span>
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className={`transition-transform ${showVeoPrompt ? 'rotate-180' : ''}`}
                 >
                     <path d="m6 9 6 6 6-6" />
                 </svg>
@@ -562,7 +649,7 @@ function SceneCard({
                 <div className="mt-3 animate-in fade-in duration-200">
                     <div className="flex justify-end mb-2">
                         <Button variant="primary" size="sm" onClick={onCopyVeo}>
-                            📋 نسخ Veo 2 Prompt
+                            📋 نسخ Video Prompt
                         </Button>
                     </div>
                     <pre
