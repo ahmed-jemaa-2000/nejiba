@@ -111,7 +111,7 @@ function generateWelcomeScene(
         titleAr: "الترحيب",
         titleEn: "Welcome",
         duration: 15,
-        arabicScript: `${character.greeting}! مرحباً بكم في ${LOCATION}! النهارده عندنا ورشة رائعة جداً... تعالوا نكتشفها معاً!`,
+        arabicScript: `${character.greeting}! مرحباً بكم في ${LOCATION}! اليوم لدينا ورشة رائعة جداً... هيّا نكتشفها معاً!`,
         veoPrompt: `${refNote}
 
 VEO 2 - 15 SECOND SCENE
@@ -162,7 +162,7 @@ function generateThemeScene(
         titleAr: "موضوع الورشة",
         titleEn: "Workshop Theme",
         duration: 15,
-        arabicScript: `ورشتنا النهارده اسمها: "${workshop.titleAr}"! ورشة ممتعة جداً للأطفال من ${workshop.ageGroup}. مدتها ${workshop.duration}!`,
+        arabicScript: `ورشتنا اليوم بعنوان: "${workshop.titleAr}"! ورشة ممتعة جداً للأطفال من ${workshop.ageGroup}. مدتها ${workshop.duration}!`,
         veoPrompt: `${refNote}
 
 VEO 2 - 15 SECOND SCENE
@@ -219,7 +219,7 @@ function generateActivitiesScene(
         titleAr: "ماذا سنفعل",
         titleEn: "What We'll Do",
         duration: 15,
-        arabicScript: `في الورشة دي هنعمل حاجات حلوة! ${activitiesText}. كلها أنشطة ممتعة ومفيدة!`,
+        arabicScript: `في هذه الورشة سنقوم بأنشطة رائعة! ${activitiesText}. كلها أنشطة ممتعة ومفيدة!`,
         veoPrompt: `${refNote}
 
 VEO 2 - 15 SECOND SCENE
@@ -274,7 +274,7 @@ function generateInvitationScene(
         titleAr: "الدعوة",
         titleEn: "Invitation",
         duration: 15,
-        arabicScript: `تعالوا انضموا لنا في ${LOCATION}! نستناكم في ورشة "${workshop.titleAr}". نراكم قريباً!`,
+        arabicScript: `انضموا إلينا في ${LOCATION}! ننتظركم في ورشة "${workshop.titleAr}". نراكم قريباً إن شاء الله!`,
         veoPrompt: `${refNote}
 
 VEO 2 - 15 SECOND SCENE

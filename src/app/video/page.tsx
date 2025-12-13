@@ -147,6 +147,39 @@ export default function VideoPage() {
         showToast("تم نسخ جميع المشاهد ✓", "success");
     }, [videoScript, showToast]);
 
+    // Download all prompts as TXT file
+    const downloadAllPrompts = useCallback(() => {
+        if (!videoScript) return;
+
+        let allText = `# فيديو ورشة: ${videoScript.workshopTitle}\n`;
+        allText += `الشخصية: ${videoScript.character.nameAr}\n`;
+        allText += `الموقع: ${videoScript.location}\n`;
+        allText += `المدة: ${videoScript.totalDuration}\n`;
+        allText += `تاريخ التوليد: ${new Date().toLocaleDateString('ar-TN')}\n\n`;
+
+        videoScript.scenes.forEach((scene) => {
+            allText += `${"=".repeat(60)}\n`;
+            allText += `# المشهد ${scene.sceneNumber}: ${scene.titleAr} (${scene.titleEn})\n`;
+            allText += `${"=".repeat(60)}\n\n`;
+            allText += `## 🎤 النص العربي (Voiceover):\n"${scene.arabicScript}"\n\n`;
+            allText += `## 🎬 VEO 2 PROMPT:\n${scene.veoPrompt}\n\n`;
+            allText += `## 🖼️ IMAGE PROMPT:\n${scene.imagePrompt}\n\n`;
+        });
+
+        // Create download
+        const blob = new Blob([allText], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `video-${videoScript.workshopTitle.replace(/\s+/g, '-')}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast("تم تنزيل الملف ✓", "success");
+    }, [videoScript, showToast]);
+
     const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -393,9 +426,14 @@ export default function VideoPage() {
                                         {videoScript.character.nameAr} • {videoScript.location} • {videoScript.totalDuration}
                                     </p>
                                 </div>
-                                <Button variant="primary" onClick={copyAllPrompts}>
-                                    📋 نسخ جميع المشاهد
-                                </Button>
+                                <div className="flex gap-2">
+                                    <Button variant="secondary" onClick={downloadAllPrompts}>
+                                        📥 تنزيل TXT
+                                    </Button>
+                                    <Button variant="primary" onClick={copyAllPrompts}>
+                                        📋 نسخ الكل
+                                    </Button>
+                                </div>
                             </div>
                         </Card>
 
