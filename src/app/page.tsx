@@ -65,13 +65,45 @@ export default function Home() {
           </p>
         </Link>
 
+        {/* Complete CASEL Program - Main Feature */}
+        <Link
+          href="/program"
+          className="group block w-full p-6 bg-gradient-to-br from-violet-500/20 via-purple-500/15 to-fuchsia-500/10 hover:from-violet-500/30 hover:via-purple-500/20 hover:to-fuchsia-500/15 border-2 border-violet-500/30 hover:border-violet-500/50 rounded-3xl transition-all duration-300 hover:shadow-2xl hover:shadow-violet-500/20 hover:-translate-y-1"
+        >
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <span className="text-3xl">🎓</span>
+            <span className="px-3 py-1 text-xs font-bold bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-full">
+              36 ورشة • CASEL
+            </span>
+          </div>
+          <h2 className="text-xl md:text-2xl font-bold text-foreground mb-2">
+            برنامج CASEL الكامل
+          </h2>
+          <p className="text-sm text-foreground-secondary mb-3">
+            منهج علمي شامل للتعلم الاجتماعي والعاطفي
+          </p>
+          <div className="flex justify-center gap-3 text-xs text-foreground-secondary/70">
+            <span className="flex items-center gap-1">📚 5 وحدات</span>
+            <span>•</span>
+            <span className="flex items-center gap-1">📅 9 أشهر</span>
+            <span>•</span>
+            <span className="flex items-center gap-1">👥 10-15 سنة</span>
+          </div>
+        </Link>
+
         {/* Quick Access Links */}
-        <div className="flex gap-3 justify-center">
+        <div className="flex flex-wrap gap-3 justify-center">
           <Link
             href="/workshop"
             className="px-4 py-2 text-sm text-foreground-secondary hover:text-foreground hover:bg-background-secondary rounded-lg transition-colors"
           >
-            📋 خطة فقط
+            📋 ورشة منفردة
+          </Link>
+          <Link
+            href="/import"
+            className="px-4 py-2 text-sm text-foreground-secondary hover:text-foreground hover:bg-background-secondary rounded-lg transition-colors"
+          >
+            📥 استيراد JSON
           </Link>
           <Link
             href="/poster"
@@ -84,6 +116,12 @@ export default function Home() {
             className="px-4 py-2 text-sm text-foreground-secondary hover:text-foreground hover:bg-background-secondary rounded-lg transition-colors"
           >
             💡 أفكار
+          </Link>
+          <Link
+            href="/ads"
+            className="px-4 py-2 text-sm text-foreground-secondary hover:text-foreground hover:bg-background-secondary rounded-lg transition-colors"
+          >
+            🎬 فيديو الورشة
           </Link>
         </div>
 

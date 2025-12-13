@@ -14,12 +14,14 @@ const DURATION_OPTIONS = [
     { value: "30", label: "30 دقيقة" },
     { value: "45", label: "45 دقيقة" },
     { value: "60", label: "60 دقيقة" },
+    { value: "90", label: "90 دقيقة", sublabel: "CASEL" },
 ];
 
 const AGE_RANGE_OPTIONS = [
     { value: "6-8", label: "6-8 سنة", sublabel: "أطفال صغار" },
     { value: "8-10", label: "8-10 سنة", sublabel: "أطفال" },
     { value: "10-12", label: "10-12 سنة", sublabel: "ما قبل المراهقة" },
+    { value: "10-15", label: "10-15 سنة", sublabel: "مراهقون - CASEL" },
     { value: "mixed", label: "أعمار مختلطة", sublabel: "6-12 سنة" },
 ];
 

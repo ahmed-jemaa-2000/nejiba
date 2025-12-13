@@ -234,6 +234,25 @@ DO NOT include: realistic photographs, scary elements, dark themes`;
     return (
         <main className="min-h-screen bg-background py-8">
             <div className="container mx-auto px-4 max-w-6xl">
+                {/* CASEL Helper Banner */}
+                <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-violet-500/10 via-purple-500/10 to-fuchsia-500/10 border border-violet-500/20">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="flex items-center gap-3">
+                            <span className="text-3xl">🎓</span>
+                            <div>
+                                <p className="font-bold text-foreground">هل أنت قادم من برنامج CASEL؟</p>
+                                <p className="text-sm text-foreground-secondary">الصق الـ JSON الذي أنشأته من ChatGPT هنا للحصول على خطة كاملة!</p>
+                            </div>
+                        </div>
+                        <a
+                            href="/program"
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-500/20 text-violet-700 hover:bg-violet-500/30 transition-colors font-medium"
+                        >
+                            ← العودة للبرنامج
+                        </a>
+                    </div>
+                </div>
+
                 {/* Header */}
                 <div className="mb-8">
                     <h1 className="text-4xl font-bold text-foreground mb-2">
