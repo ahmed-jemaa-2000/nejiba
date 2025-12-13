@@ -549,117 +549,135 @@ function SceneCard({
     const [showVeoPrompt, setShowVeoPrompt] = useState(false);
     const [showImagePrompt, setShowImagePrompt] = useState(false);
 
-    const sceneColors: Record<string, string> = {
-        welcome: "from-blue-50 to-cyan-50 border-blue-200",
-        theme: "from-purple-50 to-pink-50 border-purple-200",
-        activities: "from-orange-50 to-amber-50 border-orange-200",
-        invitation: "from-green-50 to-emerald-50 border-green-200",
+    const sceneColors: Record<string, { bg: string; border: string; badge: string }> = {
+        welcome: { bg: "bg-blue-50", border: "border-blue-300", badge: "bg-blue-600" },
+        theme: { bg: "bg-purple-50", border: "border-purple-300", badge: "bg-purple-600" },
+        activities: { bg: "bg-orange-50", border: "border-orange-300", badge: "bg-orange-600" },
+        invitation: { bg: "bg-green-50", border: "border-green-300", badge: "bg-green-600" },
     };
 
+    const colors = sceneColors[scene.sceneType] || { bg: "bg-gray-50", border: "border-gray-300", badge: "bg-gray-600" };
+
     return (
-        <Card
-            variant="bordered"
-            padding="md"
-            className={`bg-gradient-to-r ${sceneColors[scene.sceneType] || 'border-border'} ${isCopied ? 'ring-2 ring-accent' : ''}`}
-        >
+        <div className={`rounded-2xl border-2 ${colors.border} ${colors.bg} p-5 ${isCopied ? 'ring-4 ring-accent shadow-lg' : 'shadow'}`}>
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white shadow flex items-center justify-center font-bold text-lg">
-                        {scene.sceneNumber}
-                    </div>
-                    <div>
-                        <h4 className="font-bold text-foreground">{scene.titleAr}</h4>
-                        <p className="text-xs text-foreground-secondary">{scene.titleEn} • {scene.duration} ثانية</p>
-                    </div>
+            <div className="flex items-center gap-4 mb-5">
+                <div className={`w-12 h-12 rounded-full ${colors.badge} text-white shadow-lg flex items-center justify-center font-bold text-xl`}>
+                    {scene.sceneNumber}
+                </div>
+                <div className="flex-1">
+                    <h4 className="text-lg font-bold text-gray-900">{scene.titleAr}</h4>
+                    <p className="text-sm text-gray-600">{scene.titleEn} • {scene.duration} ثانية</p>
                 </div>
                 {isCopied && (
-                    <span className="text-sm text-accent font-medium">✓ تم النسخ!</span>
+                    <span className="px-3 py-1 bg-green-500 text-white text-sm rounded-full font-medium">✓ تم!</span>
                 )}
             </div>
 
-            {/* 1. Arabic Voiceover Script */}
-            <div className="mb-4 p-4 bg-white/60 rounded-xl border border-white">
-                <div className="flex items-center justify-between mb-2">
-                    <h5 className="text-sm font-bold text-foreground">🎤 النص العربي (Voiceover)</h5>
-                    <Button variant="secondary" size="sm" onClick={onCopyArabic}>
+            {/* 1. Arabic Voiceover Script - Always Visible */}
+            <div className="mb-4 p-4 bg-white rounded-xl border-2 border-gray-200 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                    <h5 className="font-bold text-gray-900 flex items-center gap-2">
+                        <span className="text-xl">🎤</span>
+                        النص العربي (Voiceover)
+                    </h5>
+                    <button
+                        onClick={onCopyArabic}
+                        className="px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors"
+                    >
                         📋 نسخ
-                    </Button>
+                    </button>
                 </div>
-                <p className="text-foreground leading-relaxed">"{scene.arabicScript}"</p>
+                <p className="text-gray-800 text-lg leading-relaxed font-medium">
+                    "{scene.arabicScript}"
+                </p>
             </div>
 
-            {/* 2. Nanobanana Image Prompt Toggle */}
-            <button
-                onClick={() => setShowImagePrompt(!showImagePrompt)}
-                className="w-full flex items-center justify-between p-3 bg-white/40 rounded-xl hover:bg-white/60 transition-colors mb-2"
-            >
-                <span className="font-medium text-foreground">🖼️ Nanobanana Image Prompt</span>
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className={`transition-transform ${showImagePrompt ? 'rotate-180' : ''}`}
+            {/* 2. Nanobanana Image Prompt */}
+            <div className="mb-3">
+                <button
+                    onClick={() => setShowImagePrompt(!showImagePrompt)}
+                    className="w-full flex items-center justify-between p-4 bg-white rounded-xl border-2 border-indigo-200 hover:border-indigo-400 transition-colors"
                 >
-                    <path d="m6 9 6 6 6-6" />
-                </svg>
-            </button>
-
-            {showImagePrompt && (
-                <div className="mb-3 animate-in fade-in duration-200">
-                    <div className="flex justify-end mb-2">
-                        <Button variant="primary" size="sm" onClick={onCopyImage}>
-                            📋 نسخ Image Prompt
-                        </Button>
-                    </div>
-                    <pre
-                        dir="ltr"
-                        className="text-xs bg-indigo-900 text-cyan-300 p-4 rounded-xl overflow-auto max-h-48 font-mono whitespace-pre-wrap"
+                    <span className="font-bold text-gray-900 flex items-center gap-2">
+                        <span className="text-xl">🖼️</span>
+                        Nanobanana Image Prompt
+                    </span>
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24" height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className={`transition-transform text-indigo-600 ${showImagePrompt ? 'rotate-180' : ''}`}
                     >
-                        {scene.imagePrompt}
-                    </pre>
-                </div>
-            )}
+                        <path d="m6 9 6 6 6-6" />
+                    </svg>
+                </button>
 
-            {/* 3. Veo 2 Video Prompt Toggle */}
-            <button
-                onClick={() => setShowVeoPrompt(!showVeoPrompt)}
-                className="w-full flex items-center justify-between p-3 bg-white/40 rounded-xl hover:bg-white/60 transition-colors"
-            >
-                <span className="font-medium text-foreground">🎬 Veo 2 / Sora Video Prompt</span>
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className={`transition-transform ${showVeoPrompt ? 'rotate-180' : ''}`}
+                {showImagePrompt && (
+                    <div className="mt-2 p-4 bg-indigo-900 rounded-xl">
+                        <div className="flex justify-end mb-3">
+                            <button
+                                onClick={onCopyImage}
+                                className="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-400 transition-colors"
+                            >
+                                📋 نسخ Image Prompt
+                            </button>
+                        </div>
+                        <pre
+                            dir="ltr"
+                            className="text-sm text-cyan-300 font-mono whitespace-pre-wrap overflow-auto max-h-48"
+                        >
+                            {scene.imagePrompt}
+                        </pre>
+                    </div>
+                )}
+            </div>
+
+            {/* 3. Veo 2 Video Prompt */}
+            <div>
+                <button
+                    onClick={() => setShowVeoPrompt(!showVeoPrompt)}
+                    className="w-full flex items-center justify-between p-4 bg-white rounded-xl border-2 border-emerald-200 hover:border-emerald-400 transition-colors"
                 >
-                    <path d="m6 9 6 6 6-6" />
-                </svg>
-            </button>
-
-            {showVeoPrompt && (
-                <div className="mt-3 animate-in fade-in duration-200">
-                    <div className="flex justify-end mb-2">
-                        <Button variant="primary" size="sm" onClick={onCopyVeo}>
-                            📋 نسخ Video Prompt
-                        </Button>
-                    </div>
-                    <pre
-                        dir="ltr"
-                        className="text-xs bg-gray-900 text-green-400 p-4 rounded-xl overflow-auto max-h-64 font-mono whitespace-pre-wrap"
+                    <span className="font-bold text-gray-900 flex items-center gap-2">
+                        <span className="text-xl">🎬</span>
+                        Veo 2 / Sora Video Prompt
+                    </span>
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24" height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className={`transition-transform text-emerald-600 ${showVeoPrompt ? 'rotate-180' : ''}`}
                     >
-                        {scene.veoPrompt}
-                    </pre>
-                </div>
-            )}
-        </Card>
+                        <path d="m6 9 6 6 6-6" />
+                    </svg>
+                </button>
+
+                {showVeoPrompt && (
+                    <div className="mt-2 p-4 bg-gray-900 rounded-xl">
+                        <div className="flex justify-end mb-3">
+                            <button
+                                onClick={onCopyVeo}
+                                className="px-4 py-2 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-400 transition-colors"
+                            >
+                                📋 نسخ Video Prompt
+                            </button>
+                        </div>
+                        <pre
+                            dir="ltr"
+                            className="text-sm text-green-400 font-mono whitespace-pre-wrap overflow-auto max-h-64"
+                        >
+                            {scene.veoPrompt}
+                        </pre>
+                    </div>
+                )}
+            </div>
+        </div>
     );
 }
