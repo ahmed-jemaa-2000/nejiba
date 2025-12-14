@@ -98,48 +98,102 @@ export default function ProgramPage() {
                 </div>
             </header>
 
-            {/* Instructions & Workflow */}
-            <div className="bg-gradient-to-r from-accent/10 via-accent/5 to-accent/10 border-y border-accent/20 py-6">
+            {/* Instructions & Workflow - Enhanced for beginners */}
+            <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 dark:from-amber-950/30 dark:via-yellow-950/20 dark:to-amber-950/30 border-y-2 border-amber-300 dark:border-amber-700 py-8">
                 <div className="max-w-6xl mx-auto px-6">
-                    <div className="flex flex-col md:flex-row items-center justify-center gap-6">
+                    {/* Title */}
+                    <div className="text-center mb-6">
+                        <span className="inline-block px-4 py-1 rounded-full bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 text-sm font-bold mb-2">
+                            📋 كيف تستخدم البرنامج؟
+                        </span>
+                        <h2 className="text-xl font-bold text-amber-900 dark:text-amber-100">
+                            3 خطوات بسيطة للحصول على ورشة عمل كاملة!
+                        </h2>
+                    </div>
+
+                    {/* Steps */}
+                    <div className="flex flex-col md:flex-row items-stretch justify-center gap-4">
                         {/* Step 1 */}
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-bold">1</div>
-                            <div className="text-right">
-                                <p className="font-bold text-foreground">انقر على أي ورشة</p>
-                                <p className="text-xs text-foreground-secondary">لنسخ البرومبت</p>
+                        <div className="flex-1 p-5 rounded-2xl bg-white dark:bg-gray-800 border-2 border-amber-300 dark:border-amber-700 shadow-lg">
+                            <div className="flex items-start gap-3">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white flex items-center justify-center font-bold text-xl shadow-lg flex-shrink-0">
+                                    1
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-foreground text-lg mb-1">اختر ورشة</h3>
+                                    <p className="text-sm text-foreground-secondary mb-2">انقر على أي ورشة أدناه لنسخ البرومبت الجاهز</p>
+                                    <div className="text-xs text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-900/30 rounded-lg px-3 py-2">
+                                        💡 اختر من 36 ورشة عمل CASEL
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent hidden md:block rotate-180">
-                            <path d="m15 18-6-6 6-6" />
-                        </svg>
+                        {/* Arrow */}
+                        <div className="hidden md:flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500 rotate-180">
+                                <path d="m15 18-6-6 6-6" />
+                            </svg>
+                        </div>
+                        <div className="flex md:hidden items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500 rotate-90">
+                                <path d="m15 18-6-6 6-6" />
+                            </svg>
+                        </div>
 
                         {/* Step 2 */}
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-accent/20 text-accent flex items-center justify-center font-bold">2</div>
-                            <div className="text-right">
-                                <p className="font-bold text-foreground">الصقه في ChatGPT</p>
-                                <p className="text-xs text-foreground-secondary">لتوليد خطة JSON</p>
+                        <div className="flex-1 p-5 rounded-2xl bg-white dark:bg-gray-800 border-2 border-amber-300 dark:border-amber-700 shadow-lg">
+                            <div className="flex items-start gap-3">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 text-white flex items-center justify-center font-bold text-xl shadow-lg flex-shrink-0">
+                                    2
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-foreground text-lg mb-1">الصق في ChatGPT</h3>
+                                    <p className="text-sm text-foreground-secondary mb-2">افتح <a href="https://chat.openai.com" target="_blank" className="text-blue-600 underline">ChatGPT</a> والصق البرومبت</p>
+                                    <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 rounded-lg px-3 py-2">
+                                        🤖 ChatGPT سينشئ خطة JSON كاملة
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent hidden md:block rotate-180">
-                            <path d="m15 18-6-6 6-6" />
-                        </svg>
+                        {/* Arrow */}
+                        <div className="hidden md:flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500 rotate-180">
+                                <path d="m15 18-6-6 6-6" />
+                            </svg>
+                        </div>
+                        <div className="flex md:hidden items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500 rotate-90">
+                                <path d="m15 18-6-6 6-6" />
+                            </svg>
+                        </div>
 
                         {/* Step 3 */}
                         <Link
                             href="/import"
-                            className="flex items-center gap-3 px-4 py-2 rounded-xl border-2 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all"
+                            className="flex-1 p-5 rounded-2xl bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-900/30 dark:to-green-900/20 border-2 border-emerald-500 shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all group"
                         >
-                            <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold">3</div>
-                            <div className="text-right">
-                                <p className="font-bold text-emerald-700">استيراد JSON هنا</p>
-                                <p className="text-xs text-emerald-600">لعرض الخطة وتصديرها PDF</p>
+                            <div className="flex items-start gap-3">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 text-white flex items-center justify-center font-bold text-xl shadow-lg flex-shrink-0 group-hover:scale-110 transition-transform">
+                                    3
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-emerald-800 dark:text-emerald-200 text-lg mb-1">استورد هنا! ←</h3>
+                                    <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-2">انسخ JSON من ChatGPT واستورده</p>
+                                    <div className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-200 dark:bg-emerald-800/50 rounded-lg px-3 py-2 font-bold">
+                                        📄 احصل على PDF جاهز للطباعة!
+                                    </div>
+                                </div>
                             </div>
-                            <span className="text-emerald-500 text-xl">→</span>
                         </Link>
+                    </div>
+
+                    {/* Help text */}
+                    <div className="mt-4 text-center">
+                        <p className="text-sm text-amber-700 dark:text-amber-300">
+                            ❓ تحتاج مساعدة؟ ابدأ بالخطوة 1 - اختر ورشة من القائمة أدناه!
+                        </p>
                     </div>
                 </div>
             </div>

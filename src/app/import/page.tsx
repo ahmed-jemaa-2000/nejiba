@@ -247,32 +247,58 @@ DO NOT include: realistic photographs, scary elements, dark themes`;
     return (
         <main className="min-h-screen bg-background py-8">
             <div className="container mx-auto px-4 max-w-6xl">
-                {/* CASEL Helper Banner */}
-                <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-violet-500/10 via-purple-500/10 to-fuchsia-500/10 border border-violet-500/20">
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                        <div className="flex items-center gap-3">
-                            <span className="text-3xl">🎓</span>
-                            <div>
-                                <p className="font-bold text-foreground">هل أنت قادم من برنامج CASEL؟</p>
-                                <p className="text-sm text-foreground-secondary">الصق الـ JSON الذي أنشأته من ChatGPT هنا للحصول على خطة كاملة!</p>
+                {/* Progress Tracker Banner */}
+                <div className="mb-6 p-6 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-green-500/10 to-teal-500/10 border-2 border-emerald-500/30">
+                    <div className="flex flex-col gap-4">
+                        {/* Title */}
+                        <div className="flex items-center justify-between flex-wrap gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 text-white flex items-center justify-center font-bold text-2xl shadow-lg">
+                                    3
+                                </div>
+                                <div>
+                                    <p className="font-bold text-foreground text-lg">الخطوة 3: استيراد JSON</p>
+                                    <p className="text-sm text-foreground-secondary">أنت على وشك الحصول على خطة ورشة كاملة! 🎉</p>
+                                </div>
+                            </div>
+                            <a
+                                href="/program"
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-500/20 text-violet-700 dark:text-violet-300 hover:bg-violet-500/30 transition-colors font-medium"
+                            >
+                                ← العودة للبرنامج (الخطوة 1)
+                            </a>
+                        </div>
+
+                        {/* Steps Progress */}
+                        <div className="flex items-center justify-center gap-2 flex-wrap">
+                            {/* Step 1 - Completed */}
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                                <span className="text-lg">✅</span>
+                                <span className="text-sm font-medium">اخترت ورشة</span>
+                            </div>
+                            <span className="text-gray-400">→</span>
+                            {/* Step 2 - Completed */}
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                                <span className="text-lg">✅</span>
+                                <span className="text-sm font-medium">ChatGPT أنشأ JSON</span>
+                            </div>
+                            <span className="text-gray-400">→</span>
+                            {/* Step 3 - Current */}
+                            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500 text-white shadow-lg animate-pulse">
+                                <span className="text-lg">📥</span>
+                                <span className="text-sm font-bold">الصق JSON هنا!</span>
                             </div>
                         </div>
-                        <a
-                            href="/program"
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-500/20 text-violet-700 hover:bg-violet-500/30 transition-colors font-medium"
-                        >
-                            ← العودة للبرنامج
-                        </a>
                     </div>
                 </div>
 
                 {/* Header */}
-                <div className="mb-8">
+                <div className="mb-6">
                     <h1 className="text-4xl font-bold text-foreground mb-2">
                         📥 استيراد ورشة من JSON
                     </h1>
                     <p className="text-foreground-secondary">
-                        استورد خطة ورشة تم إنشاؤها باستخدام ChatGPT
+                        انسخ JSON من ChatGPT والصقه هنا للحصول على خطة ورشة مع PDF جاهز للطباعة
                     </p>
                 </div>
 
