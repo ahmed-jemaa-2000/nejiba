@@ -82,6 +82,32 @@ const colors = {
     lowEnergy: '#D1FAE5',
     lowEnergyBorder: '#34D399',
 
+    // 🆕 ADOLESCENT-SPECIFIC COLORS
+    // Autonomy & Choice
+    autonomy: '#7C3AED',
+    autonomyLight: '#F5F3FF',
+    autonomyBorder: '#A78BFA',
+
+    // Peer Interaction
+    peer: '#06B6D4',
+    peerLight: '#ECFEFF',
+    peerBorder: '#22D3EE',
+
+    // Real-World Application
+    realWorld: '#F97316',
+    realWorldLight: '#FFF7ED',
+    realWorldBorder: '#FB923C',
+
+    // Weekly Commitment
+    commitment: '#059669',
+    commitmentLight: '#ECFDF5',
+    commitmentBorder: '#34D399',
+
+    // Reflection
+    reflection: '#8B5CF6',
+    reflectionLight: '#F5F3FF',
+    reflectionBorder: '#A78BFA',
+
     // Text
     heading: '#1E293B',
     body: '#334155',
@@ -512,6 +538,254 @@ const styles = StyleSheet.create({
         marginBottom: 5,
         paddingRight: 15,
         lineHeight: 1.5,
+    },
+
+    // ============================================================================
+    // 🆕 ADOLESCENT-SPECIFIC STYLES (10-15 سنة)
+    // ============================================================================
+
+    // Autonomy & Choice Box
+    autonomyBox: {
+        backgroundColor: colors.autonomyLight,
+        borderRadius: 10,
+        padding: 12,
+        marginTop: 12,
+        borderRightWidth: 4,
+        borderRightColor: colors.autonomy,
+    },
+    autonomyTitle: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: colors.autonomy,
+        textAlign: 'right',
+        marginBottom: 6,
+    },
+    choicePoint: {
+        fontSize: 9,
+        color: colors.body,
+        textAlign: 'right',
+        marginBottom: 3,
+        paddingRight: 12,
+    },
+
+    // Peer Interaction Style
+    peerBox: {
+        backgroundColor: colors.peerLight,
+        borderRadius: 10,
+        padding: 10,
+        marginTop: 8,
+        borderRightWidth: 4,
+        borderRightColor: colors.peer,
+    },
+    peerTitle: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: colors.peer,
+        textAlign: 'right',
+        marginBottom: 4,
+    },
+    peerText: {
+        fontSize: 9,
+        color: colors.body,
+        textAlign: 'right',
+    },
+
+    // Real-World Link Box
+    realWorldBox: {
+        backgroundColor: colors.realWorldLight,
+        borderRadius: 10,
+        padding: 10,
+        marginTop: 8,
+        borderRightWidth: 4,
+        borderRightColor: colors.realWorld,
+    },
+    realWorldTitle: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: colors.realWorld,
+        textAlign: 'right',
+        marginBottom: 4,
+    },
+    realWorldText: {
+        fontSize: 9,
+        color: colors.body,
+        textAlign: 'right',
+    },
+
+    // Reflection Prompts
+    reflectionBox: {
+        backgroundColor: colors.reflectionLight,
+        borderRadius: 10,
+        padding: 12,
+        marginTop: 12,
+        borderRightWidth: 4,
+        borderRightColor: colors.reflection,
+    },
+    reflectionTitle: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: colors.reflection,
+        textAlign: 'right',
+        marginBottom: 6,
+    },
+    reflectionPrompt: {
+        fontSize: 9,
+        color: colors.body,
+        textAlign: 'right',
+        marginBottom: 4,
+        paddingRight: 10,
+    },
+
+    // Weekly Commitment Page
+    commitmentPage: {
+        fontFamily: 'Cairo',
+        padding: 35,
+        backgroundColor: colors.white,
+    },
+    commitmentHeader: {
+        backgroundColor: colors.commitment,
+        borderRadius: 12,
+        padding: 20,
+        marginBottom: 20,
+    },
+    commitmentHeaderTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: colors.white,
+        textAlign: 'center',
+        marginBottom: 6,
+    },
+    commitmentHeaderSubtitle: {
+        fontSize: 11,
+        color: '#A7F3D0',
+        textAlign: 'center',
+    },
+    commitmentCard: {
+        backgroundColor: colors.commitmentLight,
+        borderRadius: 12,
+        padding: 15,
+        marginBottom: 12,
+        borderWidth: 2,
+        borderColor: colors.commitmentBorder,
+    },
+    commitmentOption: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        marginBottom: 10,
+        padding: 12,
+        backgroundColor: colors.white,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    commitmentCheckbox: {
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        borderWidth: 2,
+        borderColor: colors.commitment,
+        marginLeft: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    commitmentOptionText: {
+        flex: 1,
+        fontSize: 11,
+        color: colors.body,
+        textAlign: 'right',
+        lineHeight: 1.5,
+    },
+    commitmentDifficulty: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 10,
+        marginRight: 10,
+    },
+    commitmentDifficultyText: {
+        fontSize: 8,
+        fontWeight: 'bold',
+    },
+    followUpBox: {
+        backgroundColor: colors.primaryLight,
+        borderRadius: 12,
+        padding: 15,
+        marginTop: 15,
+        borderWidth: 2,
+        borderColor: colors.primary,
+    },
+    followUpTitle: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: colors.primary,
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    followUpText: {
+        fontSize: 11,
+        color: colors.primaryDark,
+        textAlign: 'center',
+        lineHeight: 1.6,
+    },
+
+    // Application Challenge Page
+    challengePage: {
+        fontFamily: 'Cairo',
+        padding: 35,
+        backgroundColor: colors.white,
+    },
+    challengeHeader: {
+        backgroundColor: colors.realWorld,
+        borderRadius: 12,
+        padding: 20,
+        marginBottom: 20,
+    },
+    challengeHeaderTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: colors.white,
+        textAlign: 'center',
+        marginBottom: 6,
+    },
+    scenarioBox: {
+        backgroundColor: colors.cardBg,
+        borderRadius: 12,
+        padding: 18,
+        marginBottom: 15,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    scenarioLabel: {
+        fontSize: 10,
+        color: colors.muted,
+        textAlign: 'right',
+        marginBottom: 6,
+    },
+    scenarioText: {
+        fontSize: 12,
+        color: colors.heading,
+        textAlign: 'right',
+        lineHeight: 1.8,
+        fontWeight: 'bold',
+    },
+    discussionPointsBox: {
+        backgroundColor: colors.peerLight,
+        borderRadius: 12,
+        padding: 15,
+        marginBottom: 15,
+    },
+    discussionTitle: {
+        fontSize: 11,
+        fontWeight: 'bold',
+        color: colors.peer,
+        textAlign: 'right',
+        marginBottom: 10,
+    },
+    discussionPoint: {
+        fontSize: 10,
+        color: colors.body,
+        textAlign: 'right',
+        marginBottom: 5,
+        paddingRight: 12,
     },
 
     // Footer

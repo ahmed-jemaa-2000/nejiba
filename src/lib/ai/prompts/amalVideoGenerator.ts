@@ -34,6 +34,51 @@ export interface VideoScene {
     arabicScript: string;
     veoPrompt: string;
     imagePrompt: string;
+    // NEW: Structured JSON format for Sora 2
+    veoPromptJSON?: SoraPromptJSON;
+}
+
+// Sora 2 JSON structure for expert-level prompts
+export interface SoraPromptJSON {
+    segment: {
+        id: number;
+        duration: number;
+        sceneType: string;
+        title: string;
+        titleAr: string;
+        timing: {
+            beats: Array<{
+                start: number;
+                end: number;
+                phase: string;
+                action: string;
+            }>;
+        };
+        camera: {
+            movement: string;
+            startShot: string;
+            endShot: string;
+            speed: string;
+        };
+        character: {
+            name: string;
+            nameAr: string;
+            visualDescription: string;
+            pose: string;
+            expression: string;
+        } | null;
+        environment: {
+            location: string;
+            lighting: string;
+            atmosphere: string;
+            props: string[];
+        };
+        technical: {
+            style: string;
+            quality: string;
+            effects: string[];
+        };
+    };
 }
 
 export interface VideoScriptOutput {
@@ -93,6 +138,67 @@ export const DEFAULT_CHARACTER = CHARACTERS.amal;
 export const LOCATION = "نادي الأطفال - دار الثقافة بن عروس";
 
 // ============================================================================
+// JSON BUILDER HELPER
+// ============================================================================
+
+function buildSceneJSON(
+    sceneNumber: number,
+    sceneType: string,
+    title: string,
+    titleAr: string,
+    character: Character,
+    workshop: WorkshopVideoInput,
+    cameraMovement: string = "push_in",
+    cameraStart: string = "wide_shot",
+    cameraEnd: string = "medium_shot"
+): SoraPromptJSON {
+    const timingBeats = [
+        { start: 0, end: 5, phase: "opening", action: `${character.nameEn} enters and engages` },
+        { start: 5, end: 10, phase: "development", action: "Main action builds" },
+        { start: 10, end: 15, phase: "conclusion", action: "Scene resolves with energy" }
+    ];
+
+    const props = sceneType === 'activities'
+        ? workshop.activities.slice(0, 3)
+        : ["Tunisian tiles", "Cultural decorations", "Welcome sign"];
+
+    return {
+        segment: {
+            id: sceneNumber,
+            duration: 15,
+            sceneType,
+            title,
+            titleAr,
+            timing: { beats: timingBeats },
+            camera: {
+                movement: cameraMovement,
+                startShot: cameraStart,
+                endShot: cameraEnd,
+                speed: "smooth"
+            },
+            character: {
+                name: character.nameEn,
+                nameAr: character.nameAr,
+                visualDescription: character.visualDescription,
+                pose: "welcoming, energetic",
+                expression: "warm smile, excited eyes"
+            },
+            environment: {
+                location: LOCATION,
+                lighting: "warm, inviting, morning/afternoon light",
+                atmosphere: "cheerful, child-friendly, cultural",
+                props
+            },
+            technical: {
+                style: "Pixar 3D animation, high quality",
+                quality: "cinema-grade, smooth 24fps",
+                effects: ["subtle particle effects", "warm color grading"]
+            }
+        }
+    };
+}
+
+// ============================================================================
 // SCENE GENERATORS
 // ============================================================================
 
@@ -143,7 +249,8 @@ POSE: ${character.nameEn} stands at entrance, waving warmly with big smile
 SETTING: Entrance of ${LOCATION}, Tunisian architecture, colorful tiles, morning light
 
 MOOD: Warm, inviting
-COMPOSITION: Medium shot, character centered, "نادي الأطفال" sign visible`
+COMPOSITION: Medium shot, character centered, "نادي الأطفال" sign visible`,
+        veoPromptJSON: buildSceneJSON(1, 'welcome', 'Welcome', 'الترحيب', character, workshop, 'push_in', 'wide_shot', 'medium_shot')
     };
 }
 
@@ -197,7 +304,8 @@ TITLE: "${workshop.titleAr}" floating in Arabic calligraphy
 SETTING: Workshop room, colorful materials, bright atmosphere
 
 MOOD: Exciting, magical
-COMPOSITION: Character left, title display right`
+COMPOSITION: Character left, title display right`,
+        veoPromptJSON: buildSceneJSON(2, 'theme', 'Workshop Theme', 'موضوع الورشة', character, workshop, 'orbit', 'medium_shot', 'medium_shot')
     };
 }
 
@@ -255,7 +363,8 @@ ACTIVITIES: ${activitiesList.join(", ")}
 SETTING: Workshop table, colorful materials, bright lighting
 
 MOOD: Creative, fun
-COMPOSITION: Medium shot, materials prominently displayed`
+COMPOSITION: Medium shot, materials prominently displayed`,
+        veoPromptJSON: buildSceneJSON(3, 'activities', 'What We Do', 'ماذا سنفعل', character, workshop, 'tracking', 'medium_shot', 'close_up')
     };
 }
 
@@ -310,7 +419,8 @@ SETTING: Entrance of ${LOCATION}, sunset lighting, confetti
 TEXT: Space for "نراكم قريباً في نادي الأطفال!"
 
 MOOD: Celebratory, inviting
-COMPOSITION: Full body, festive atmosphere`
+COMPOSITION: Full body, festive atmosphere`,
+        veoPromptJSON: buildSceneJSON(4, 'invitation', 'Invitation', 'الدعوة', character, workshop, 'pull_back', 'medium_shot', 'wide_shot')
     };
 }
 
