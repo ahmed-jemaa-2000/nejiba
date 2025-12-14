@@ -159,6 +159,48 @@ You MUST include these activity types in EVERY workshop:
 - **تحدي فريق (Team Challenge)**: SIMPLIFIED team activities
   - Examples: Human Knot (simplified), Group Keep-Up
 
+### 🔥 ADOLESCENT-SPECIFIC ACTIVITY TYPES (10-15 سنة) - NEW!
+
+For ages 10-15, include AT LEAST ONE of these in every workshop:
+
+**Thinking & Debate:**
+- **مناظرة ونقاش (Debate & Discussion)**: Structured debate with multiple viewpoints
+  - Examples: "Should friends always tell the truth?", "Is it okay to be angry?"
+  - Format: Present both sides, defend your position, find middle ground
+
+- **معضلة أخلاقية (Ethical Dilemma)**: Real scenarios with no easy answer
+  - Examples: "Your friend cheated - do you tell?", "Someone is bullied - what do you do?"
+  - Format: Present dilemma → Discuss in pairs → Share solutions → No "right" answer
+
+- **تحليل موقف (Situation Analysis)**: Analyze why people act the way they do
+  - Examples: "Why did the character do that?", "What could they have done differently?"
+
+**Application & Practice:**
+- **تحدي تطبيقي (Application Challenge)**: Practice skills in realistic scenarios
+  - Examples: "How would you handle this at school?", Role-play difficult conversations
+  - Format: Present scenario → Practice → Debrief what worked
+
+- **محاكاة (Simulation)**: Act out real-life situations
+  - Examples: Conflict resolution scenarios, Peer pressure situations
+  - Format: Assign roles → Act it out → Discuss → Try different approaches
+
+**Peer-Based Learning:**
+- **إرشاد الأقران (Peer Mentoring)**: Teens teach/help each other
+  - Examples: Experienced participants guide newer ones, Skill exchange
+  - Format: Pair up → Teach each other → Share what you learned
+
+- **عرض وتقديم (Presentation)**: Share ideas with the group
+  - Examples: "What I learned", Team presentation, Creative showcase
+
+**Personal Development:**
+- **مشروع شخصي (Personal Project)**: Individual meaningful creation
+  - Examples: "Letter to future me", Personal values chart, Life goal mapping
+  - Format: Individual work → Optional sharing → Take home
+
+- **كتابة تأملية (Reflective Writing)**: Private journaling with prompts
+  - Examples: "What I wish adults understood", "My biggest challenge this week"
+  - Format: Writing time → Optional sharing → Keep private if preferred
+
 ---
 
 ## 3. BALANCE ENERGY LEVELS
@@ -197,13 +239,52 @@ Adjust activity complexity based on the age group:
 - **Collaboration**: Can work in small groups (3-4 kids)
 - **Challenge**: Can handle simple competition (relay races, team challenges)
 
-### للأعمار 10-12 سنوات (Pre-Teens):
-- **Step Count**: 4-5 steps with optional extension challenges
-- **Step Duration**: 12-18 minutes per activity
-- **Language**: Can discuss abstract concepts (bravery, friendship meaning)
-- **Leadership**: Can lead small groups or demonstrations
-- **Reflection**: Capable of analyzing their feelings and experiences
-- **Independence**: Can work more independently with less facilitator guidance
+### للأعمار 10-15 سنوات (Adolescents) - CRITICAL DIFFERENCES! ⚠️
+
+This age group is fundamentally different from younger children. They are NOT just "older kids" - they are developing young adults who need:
+
+**AUTONOMY & CHOICE:**
+- **Choice Points**: Every activity MUST include decision points where they choose
+- **Format Options**: "You can work alone, in pairs, or in a group of 3"
+- **Content Options**: "Choose which scenario speaks to you most"
+- **No forced participation**: Optional sharing, respect their comfort zone
+
+**PEER-FOCUSED LEARNING:**
+- **Pair-First**: Always start with partner work before whole group
+- **Peer Recognition**: Their friends' opinions matter more than facilitator praise
+- **Peer Mentoring**: Let experienced participants help newer ones
+- **Group Identity**: Create a sense of "we're in this together"
+
+**REAL-WORLD RELEVANCE:**
+- **Why Question**: Always answer "Why does this matter for MY life?"
+- **School Connection**: How does this help at school?
+- **Friend Connection**: How does this help with friends?
+- **Family Connection**: How does this help at home?
+- **Future Self**: How does this help my future?
+
+**DEPTH & MEANING:**
+- **Abstract Thinking**: Can discuss concepts like identity, values, purpose
+- **Ethical Dilemmas**: Give them real scenarios with no easy answers
+- **Multiple Perspectives**: Encourage seeing all sides of an issue
+- **Critical Thinking**: Ask "What do YOU think?" not "What's the right answer?"
+
+**APPLICATION & COMMITMENT:**
+- **Weekly Commitment**: Every workshop ends with a concrete action for the week
+- **Follow-Up**: Start next session asking about their commitment
+- **Real Scenarios**: Practice with situations from their actual lives
+- **Role Play**: Act out difficult conversations they might have
+
+**COMMUNICATION STYLE:**
+- **Respectful Language**: Never talk down to them
+- **No Childish Games**: Adapt activities to feel age-appropriate
+- **Discussion Time**: 5-7 minutes of discussion is appropriate (not 2 min max)
+- **Acknowledge Struggles**: "I know this is hard" instead of "This is fun!"
+
+**STRUCTURE FOR 10-15:**
+- **Step Count**: 4-5 steps with optional extensions
+- **Step Duration**: 15-20 minutes per activity
+- **Energy Balance**: 60% interactive, 40% reflective (NOT 80% high energy!)
+- **Independence**: Give them space to work without constant facilitation
 
 ---
 

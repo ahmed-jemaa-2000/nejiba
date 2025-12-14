@@ -6,9 +6,12 @@
  * - 4 Sora 2 Video Prompts (15 seconds each = 60 seconds total)
  * 
  * Character: نور (Noor) - 8-year-old Pixar-style Middle Eastern girl
+ * 
+ * Now includes EXPERT MODE with structured JSON prompts via SoraPromptBuilder
  */
 
 import type { WorkshopPlanData } from "@/lib/ai/providers/base";
+import { buildSoraPrompt, type SoraPromptJSON } from "./soraPromptBuilder";
 
 // ============================================================================
 // TYPES
@@ -21,10 +24,14 @@ export interface Scene {
     imagePrompt: string;
     videoPrompt: string;
     duration: number; // 15 seconds each
+    // NEW: Expert mode fields
+    videoPromptJSON?: SoraPromptJSON;
+    videoPromptAPI?: string;
 }
 
 export interface AdPromptOptions {
     includeCharacter?: boolean; // Default: true (include Noor)
+    expertMode?: boolean;       // NEW: Use structured JSON prompts
 }
 
 export interface AdPrompts {
@@ -35,6 +42,7 @@ export interface AdPrompts {
     scenes: Scene[];
     summary: string;
     includeCharacter: boolean;
+    expertMode?: boolean;       // NEW: Indicates expert prompts used
 }
 
 // ============================================================================
@@ -366,6 +374,68 @@ export function generateAdPrompts(
 }
 
 // ============================================================================
+// EXPERT MODE GENERATOR - NEW!
+// ============================================================================
+
+const SCENE_TYPES = ["opening", "discovery", "action", "celebration"] as const;
+
+/**
+ * Generate expert-level ad prompts with structured JSON
+ * Uses the SoraPromptBuilder for professional cinematography
+ */
+export function generateExpertAdPrompts(
+    workshop: WorkshopPlanData,
+    options: AdPromptOptions = {}
+): AdPrompts {
+    const { includeCharacter = true } = options;
+    const data = extractWorkshopData(workshop);
+
+    // Get main activity description
+    const mainActivity = data.activities[0]?.title || "workshop activity";
+    const materials = data.mainMaterials;
+
+    const scenes: Scene[] = SCENE_TYPES.map((sceneType, index) => {
+        // Build expert prompt using the new system
+        const expertPrompt = buildSoraPrompt({
+            sceneNumber: index + 1,
+            totalScenes: 4,
+            sceneType,
+            activity: mainActivity,
+            materials,
+            workshopTitle: data.titleEn,
+            workshopTitleAr: data.titleAr,
+            includeCharacter
+        });
+
+        // Get scene template for image prompt (reuse existing)
+        const template = SCENE_TEMPLATES[index];
+
+        return {
+            sceneNumber: index + 1,
+            title: expertPrompt.json.segment.title,
+            titleAr: expertPrompt.json.segment.titleAr,
+            imagePrompt: generateSceneImagePrompt(template, index + 1, data, includeCharacter),
+            videoPrompt: expertPrompt.humanReadable,
+            duration: 15,
+            // Expert mode JSON fields
+            videoPromptJSON: expertPrompt.json,
+            videoPromptAPI: expertPrompt.apiReady
+        };
+    });
+
+    return {
+        workshopTitle: data.titleAr,
+        workshopTitleEn: data.titleEn,
+        characterName: includeCharacter ? "نور (Noor)" : "بدون شخصية",
+        totalDuration: "60 ثانية (4 مقاطع × 15 ثانية)",
+        scenes,
+        summary: `[EXPERT MODE] إعلان ورشة "${data.titleAr}" - 4 مشاهد - ${data.duration} - للأطفال ${data.ageGroup}`,
+        includeCharacter,
+        expertMode: true
+    };
+}
+
+// ============================================================================
 // OPENAI ENHANCEMENT PROMPT
 // ============================================================================
 
@@ -384,3 +454,49 @@ Always maintain:
 - Scene continuity and flow
 
 Respond in the same format, keeping scene structure intact.`;
+
+// ============================================================================
+// EXPORT HELPERS
+// ============================================================================
+
+/**
+ * Export all prompts as structured JSON for API usage
+ */
+export function exportPromptsAsJSON(prompts: AdPrompts): string {
+    if (!prompts.expertMode) {
+        // Convert legacy prompts to basic structure
+        return JSON.stringify({
+            workshop: prompts.workshopTitle,
+            totalDuration: prompts.totalDuration,
+            scenes: prompts.scenes.map(s => ({
+                id: s.sceneNumber,
+                title: s.title,
+                titleAr: s.titleAr,
+                imagePrompt: s.imagePrompt,
+                videoPrompt: s.videoPrompt,
+                duration: s.duration
+            }))
+        }, null, 2);
+    }
+
+    // Expert mode - full JSON export
+    return JSON.stringify({
+        workshop: prompts.workshopTitle,
+        workshopEn: prompts.workshopTitleEn,
+        totalDuration: prompts.totalDuration,
+        expertMode: true,
+        scenes: prompts.scenes.map(s => ({
+            id: s.sceneNumber,
+            title: s.title,
+            titleAr: s.titleAr,
+            imagePrompt: s.imagePrompt,
+            soraPrompt: {
+                humanReadable: s.videoPrompt,
+                apiReady: s.videoPromptAPI,
+                structured: s.videoPromptJSON
+            },
+            duration: s.duration
+        }))
+    }, null, 2);
+}
+

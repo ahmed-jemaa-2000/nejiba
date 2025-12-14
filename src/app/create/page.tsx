@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { StepIndicator } from "@/components/creator/StepIndicator";
 import { TopicStep } from "@/components/creator/TopicStep";
 import { WorkshopStep } from "@/components/creator/WorkshopStep";
 import { PosterStep } from "@/components/creator/PosterStep";
 import { ContentKitStep } from "@/components/creator/ContentKitStep";
+import { StepGuide } from "@/components/creator/StepGuide";
+import { PipelineOverview } from "@/components/creator/PipelineOverview";
+import { StepNotification } from "@/components/ui/StepNotification";
 import type { WorkshopPlanData, WorkshopActivity } from "@/app/workshop/page";
 
 import type { DailyTip } from "@/lib/ai/openai";
@@ -62,6 +65,33 @@ export default function CreatePage() {
     const [state, setState] = useState<CreatorState>(INITIAL_STATE);
     const [isLoading, setIsLoading] = useState(false);
 
+    // Guidance system state
+    const [showPipelineOverview, setShowPipelineOverview] = useState(false);
+    const [showNotification, setShowNotification] = useState(false);
+    const [notificationStep, setNotificationStep] = useState<Step>("topic");
+    const [isFirstVisit, setIsFirstVisit] = useState(true);
+
+    // Show pipeline overview on first visit
+    useEffect(() => {
+        if (isFirstVisit) {
+            const hasVisited = localStorage.getItem("nejiba-pipeline-intro-seen");
+            if (!hasVisited) {
+                // Small delay for smooth entrance
+                const timer = setTimeout(() => {
+                    setShowPipelineOverview(true);
+                }, 500);
+                return () => clearTimeout(timer);
+            }
+            setIsFirstVisit(false);
+        }
+    }, [isFirstVisit]);
+
+    const handleOverviewClose = () => {
+        setShowPipelineOverview(false);
+        localStorage.setItem("nejiba-pipeline-intro-seen", "true");
+        setIsFirstVisit(false);
+    };
+
     const updateState = useCallback((updates: Partial<CreatorState>) => {
         setState((prev) => ({ ...prev, ...updates }));
     }, []);
@@ -88,8 +118,11 @@ export default function CreatePage() {
             workshopPlan: plan,
             // Pre-fill poster details immediately
             posterTitle: plan.title.ar,
-            posterDescription: plan.title.ar // Use title as base description for simplicity
+            posterDescription: plan.title.ar
         });
+        // Show "What's Next" notification
+        setNotificationStep("workshop");
+        setShowNotification(true);
     }, [updateState]);
 
     const handleActivityUpdated = useCallback((index: number, activity: WorkshopActivity) => {
@@ -103,12 +136,30 @@ export default function CreatePage() {
 
     const handlePosterGenerated = useCallback((url: string) => {
         updateState({ generatedPosterUrl: url });
+        // Show "What's Next" notification
+        setNotificationStep("poster");
+        setShowNotification(true);
     }, [updateState]);
+
+    const handleContentKitGenerated = useCallback(() => {
+        // Show completion notification
+        setNotificationStep("content-kit");
+        setShowNotification(true);
+    }, []);
 
     const handleReset = useCallback(() => {
         setState(INITIAL_STATE);
         setCurrentStep("topic");
     }, []);
+
+    const handleNotificationAction = useCallback(() => {
+        // Navigate to next step based on current notification
+        if (notificationStep === "workshop") {
+            goToStep("poster");
+        } else if (notificationStep === "poster") {
+            goToStep("content-kit");
+        }
+    }, [notificationStep, goToStep]);
 
     return (
         <main className="min-h-screen bg-background">
@@ -125,14 +176,24 @@ export default function CreatePage() {
                                 <p className="text-xs text-foreground-secondary">إنشاء محتوى الورشة</p>
                             </div>
                         </div>
-                        {state.topic && (
+                        <div className="flex items-center gap-2">
+                            {/* Help button */}
                             <button
-                                onClick={handleReset}
-                                className="text-sm text-foreground-secondary hover:text-foreground transition-colors"
+                                onClick={() => setShowPipelineOverview(true)}
+                                className="w-8 h-8 rounded-full bg-background-tertiary hover:bg-border flex items-center justify-center text-foreground-secondary hover:text-accent transition-colors"
+                                title="عرض دليل الخطوات"
                             >
-                                إنشاء جديد
+                                ؟
                             </button>
-                        )}
+                            {state.topic && (
+                                <button
+                                    onClick={handleReset}
+                                    className="text-sm text-foreground-secondary hover:text-foreground transition-colors"
+                                >
+                                    إنشاء جديد
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <StepIndicator
@@ -147,6 +208,9 @@ export default function CreatePage() {
 
             {/* Main Content */}
             <div className="max-w-4xl mx-auto px-4 py-6">
+                {/* Step Guide - Contextual help */}
+                <StepGuide currentStep={currentStep} />
+
                 {currentStep === "topic" && (
                     <TopicStep
                         currentTopic={state.topic}
@@ -185,7 +249,12 @@ export default function CreatePage() {
                 {currentStep === "content-kit" && (
                     <ContentKitStep
                         state={state}
-                        updateState={updateState}
+                        updateState={(updates) => {
+                            updateState(updates);
+                            if (updates.dailyTips) {
+                                handleContentKitGenerated();
+                            }
+                        }}
                         onBack={() => goToStep("poster")}
                         onReset={handleReset}
                         isLoading={isLoading}
@@ -193,6 +262,22 @@ export default function CreatePage() {
                     />
                 )}
             </div>
+
+            {/* Pipeline Overview Modal */}
+            <PipelineOverview
+                isOpen={showPipelineOverview}
+                onClose={handleOverviewClose}
+                onStart={handleOverviewClose}
+            />
+
+            {/* Step Notification */}
+            <StepNotification
+                show={showNotification}
+                currentStep={notificationStep}
+                onDismiss={() => setShowNotification(false)}
+                onAction={handleNotificationAction}
+            />
         </main>
     );
 }
+
