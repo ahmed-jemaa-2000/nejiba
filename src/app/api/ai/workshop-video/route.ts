@@ -25,27 +25,34 @@ interface VideoGeneratorRequest {
     enhance?: boolean;
 }
 
-// AI Enhancement prompt for video scripts
-const ENHANCEMENT_PROMPT = `You are an expert video script writer for children's educational content in Arabic.
+// AI Enhancement prompt for video scripts - EXPERT VERSION
+const ENHANCEMENT_PROMPT = `You are an expert video script writer for children's educational promotional content in Arabic.
 
-Your task is to enhance video scene prompts for a workshop promotion video featuring "أمل" (Amal), an 8-year-old girl at دار الثقافة بن عروس.
+Your task is to enhance video scene prompts for a workshop promotion video featuring an animated character.
 
-CRITICAL: ARABIC LANGUAGE RULES:
-- Use STANDARD ARABIC (الفصحى البسيطة) - simple Modern Standard Arabic
-- Keep it child-friendly and easy to understand
-- Avoid dialectal words (no Egyptian, Tunisian, or Gulf dialects)
-- Add warmth and excitement suitable for children
-- Keep each script under 20 seconds when read aloud
+CRITICAL ARABIC LANGUAGE RULES:
+- Use SIMPLE MODERN STANDARD ARABIC (الفصحى البسيطة)
+- Make dialogue warm, exciting, and child-friendly
+- Each arabicScript should be 15-20 Arabic words (fits 8 second scenes)
+- Add emotional expressions: excitement, joy, curiosity
+- Use rhetorical questions to engage viewers
+- Include calls to action
 
-RULES FOR VEO 2 PROMPTS:
-- Add more specific visual details
-- Include exact camera movements
-- Specify lighting and mood
-- Maintain Pixar 3D animation style
-- Keep character consistent with reference image
+DIALOGUE ENHANCEMENT TIPS:
+- Start hooks with attention grabbers: "هل تعلمون؟", "يا أصدقاء!", "تعالوا معي!"
+- Add descriptive words: "رائع", "ممتع", "مذهل", "مميز"
+- End with clear invitations: "انضموا إلينا!", "لا تفوتوا!", "نراكم قريباً!"
 
-Return a JSON object with "scenes" array containing enhanced scenes.
-Each scene must have: sceneNumber, sceneType, titleAr, titleEn, duration, arabicScript, veoPrompt, imagePrompt`;
+VIDEO PROMPT (veoPrompt) RULES:
+- Use "stylized 3D animated character" NOT "Pixar" or "Disney"
+- Add specific camera movements and angles
+- Include character emotions and gestures
+- Specify lighting mood: warm, colorful, inviting
+- Keep animations smooth and child-friendly
+- NEVER add text overlays - visual props only
+
+Return a JSON object with "scenes" array containing the enhanced scenes.
+Each scene MUST have: sceneNumber, sceneType, titleAr, titleEn, duration, arabicScript, veoPrompt, imagePrompt`;
 
 /**
  * Enhance video script using OpenAI

@@ -18,6 +18,7 @@ import { validateWorkshopPlan, validateJsonSyntax } from "@/lib/validation/works
 import { workshopStorage } from "@/lib/storage/workshopStorage";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { PremiumWorkshopPDF } from "@/components/pdf/PremiumWorkshopPDF";
+import { ImageSelector } from "@/components/video/ImageSelector";
 import type { WorkshopPlanData } from "@/lib/ai/providers/base";
 import type { ValidationResult } from "@/lib/validation/workshopValidator";
 
@@ -47,6 +48,17 @@ export default function ImportPage() {
     const [posterPlace, setPosterPlace] = useState("دار الثقافة بن عروس");
     const [generatedPosterPrompt, setGeneratedPosterPrompt] = useState<string | null>(null);
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+
+    // Poster image generation state (GeminiGen Imagen Pro)
+    interface GeneratedPosterImage {
+        url: string;
+        uuid: string;
+        thumbnailUrl?: string;
+    }
+    const [posterImages, setPosterImages] = useState<GeneratedPosterImage[]>([]);
+    const [selectedPosterIndex, setSelectedPosterIndex] = useState<number>(-1);
+    const [isGeneratingPosterImages, setIsGeneratingPosterImages] = useState(false);
+    const [posterImageError, setPosterImageError] = useState<string | null>(null);
 
     // Generate Nanobanana poster prompt from workshop data
     const generatePosterPrompt = useCallback(() => {
@@ -117,6 +129,49 @@ DO NOT include: realistic photographs, scary elements, dark themes`;
             showToast("تم إنشاء البرومبت بنجاح!", "success");
         }, 500);
     }, [parsedWorkshop, posterFormat, posterDate, posterTime, posterPlace, showToast]);
+
+    // Generate 3 poster images using GeminiGen Imagen Pro
+    const generatePosterImages = useCallback(async () => {
+        if (!generatedPosterPrompt) {
+            showToast("الرجاء إنشاء البرومبت أولاً", "error");
+            return;
+        }
+
+        setIsGeneratingPosterImages(true);
+        setPosterImageError(null);
+        setPosterImages([]);
+        setSelectedPosterIndex(-1);
+
+        try {
+            // Use the existing API route for scene images
+            const response = await fetch("/api/ai/generate-scene-images", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    imagePrompt: generatedPosterPrompt,
+                    sceneNumber: 0, // Not a scene, but API requires it
+                    count: 3,
+                    aspectRatio: posterFormat === "facebook" ? "16:9" : "9:16"
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || "فشل توليد الصور");
+            }
+
+            setPosterImages(data.images);
+            showToast(`✅ تم توليد ${data.images.length} صور للملصق!`, "success");
+
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "خطأ غير معروف";
+            setPosterImageError(message);
+            showToast(`❌ فشل توليد صور الملصق: ${message}`, "error");
+        } finally {
+            setIsGeneratingPosterImages(false);
+        }
+    }, [generatedPosterPrompt, posterFormat, showToast]);
 
     // Handle JSON input change
     const handleJsonChange = useCallback((value: string) => {
@@ -498,7 +553,7 @@ DO NOT include: realistic photographs, scary elements, dark themes`;
 
                                 {/* Generated Prompt Display */}
                                 {generatedPosterPrompt && (
-                                    <div className="space-y-3 animate-in fade-in duration-300">
+                                    <div className="space-y-4 animate-in fade-in duration-300">
                                         <div className="flex items-center justify-between">
                                             <h4 className="font-bold text-foreground">📋 Nanobanana Prompt</h4>
                                             <Button
@@ -514,12 +569,74 @@ DO NOT include: realistic photographs, scary elements, dark themes`;
                                         </div>
                                         <pre
                                             dir="ltr"
-                                            className="whitespace-pre-wrap text-sm bg-gray-900 text-green-400 p-4 rounded-xl border border-green-700 max-h-[400px] overflow-auto font-mono"
+                                            className="whitespace-pre-wrap text-sm bg-gray-900 text-green-400 p-4 rounded-xl border border-green-700 max-h-[200px] overflow-auto font-mono"
                                         >
                                             {generatedPosterPrompt}
                                         </pre>
+
+                                        {/* Divider */}
+                                        <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+                                            <span className="flex-1 h-px bg-gray-300"></span>
+                                            <span>أو</span>
+                                            <span className="flex-1 h-px bg-gray-300"></span>
+                                        </div>
+
+                                        {/* Generate 3 Poster Images Button */}
+                                        <Button
+                                            variant="gradient"
+                                            onClick={generatePosterImages}
+                                            loading={isGeneratingPosterImages}
+                                            fullWidth
+                                            size="lg"
+                                            className="bg-gradient-to-r from-purple-600 to-violet-700"
+                                        >
+                                            <span className="text-xl ml-2">✨</span>
+                                            توليد 3 خيارات للملصق بالذكاء الاصطناعي
+                                        </Button>
+
+                                        {/* Error Display */}
+                                        {posterImageError && (
+                                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+                                                ⚠️ {posterImageError}
+                                            </div>
+                                        )}
+
+                                        {/* Generated Poster Images Selector */}
+                                        {(posterImages.length > 0 || isGeneratingPosterImages) && (
+                                            <div className="p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-xl border-2 border-purple-200">
+                                                <ImageSelector
+                                                    images={posterImages}
+                                                    selectedIndex={selectedPosterIndex}
+                                                    onSelect={(index) => setSelectedPosterIndex(index)}
+                                                    isLoading={isGeneratingPosterImages}
+                                                    onRegenerate={generatePosterImages}
+                                                    error={posterImageError || undefined}
+                                                />
+
+                                                {/* Download Selected Image */}
+                                                {selectedPosterIndex >= 0 && posterImages[selectedPosterIndex] && (
+                                                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                                        <div className="flex items-center justify-between flex-wrap gap-2">
+                                                            <p className="text-sm text-green-700 font-medium">
+                                                                ✅ تم اختيار الملصق {selectedPosterIndex + 1}
+                                                            </p>
+                                                            <a
+                                                                href={posterImages[selectedPosterIndex].url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                download={`poster-${posterFormat}-${Date.now()}.png`}
+                                                                className="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700 transition-colors"
+                                                            >
+                                                                📥 تحميل الملصق
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
                                         <p className="text-xs text-foreground-secondary text-center">
-                                            انسخ هذا البرومبت والصقه في Nanobanana أو أي مولد صور AI
+                                            يمكنك نسخ البرومبت لـ Nanobanana أو توليد 3 صور مباشرة
                                         </p>
                                     </div>
                                 )}

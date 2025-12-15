@@ -7,6 +7,7 @@ import VideoPlatformSelector from "@/components/VideoPlatformSelector";
 import type { VideoScriptOutput, VideoScene, VideoPlatform } from "@/lib/ai/prompts/amalVideoGenerator";
 import { PLATFORM_CONFIGS } from "@/lib/ai/prompts/amalVideoGenerator";
 import type { WorkshopPlanData } from "@/lib/ai/providers/base";
+import { ImageSelector } from "@/components/video/ImageSelector";
 
 // Video generation status per scene
 interface SceneVideoStatus {
@@ -22,6 +23,7 @@ export default function VideoPage() {
     const [ageGroup, setAgeGroup] = useState("10-15 سنة");
     const [duration, setDuration] = useState("90 دقيقة");
     const [activities, setActivities] = useState("");
+    const [location, setLocation] = useState("دار الثقافة بن عروس");
     const [hasReferenceImage, setHasReferenceImage] = useState(true);
     const [referenceImage, setReferenceImage] = useState<string | null>(null);
 
@@ -33,6 +35,16 @@ export default function VideoPage() {
 
     // Per-scene video generation status
     const [sceneVideoStatus, setSceneVideoStatus] = useState<Record<number, SceneVideoStatus>>({});
+
+    // NEW: Per-scene AI-generated reference images (3 options per scene)
+    interface GeneratedImageOption {
+        url: string;
+        uuid: string;
+        thumbnailUrl?: string;
+    }
+    const [sceneGeneratedImages, setSceneGeneratedImages] = useState<Record<number, GeneratedImageOption[]>>({});
+    const [sceneSelectedImageIndex, setSceneSelectedImageIndex] = useState<Record<number, number>>({});
+    const [imageGeneratingScenes, setImageGeneratingScenes] = useState<Set<number>>(new Set());
 
     // New: AI Enhancement
     const [enhanceWithAI, setEnhanceWithAI] = useState(true);
@@ -158,6 +170,7 @@ export default function VideoPage() {
                         ageGroup,
                         duration,
                         activities: activityList,
+                        location,
                     },
                     platform: selectedPlatform,
                     characterId: "amal",
@@ -180,7 +193,7 @@ export default function VideoPage() {
         } finally {
             setIsGenerating(false);
         }
-    }, [workshopTitle, ageGroup, duration, activities, hasReferenceImage, enhanceWithAI, importedWorkshop, selectedPlatform, showToast]);
+    }, [workshopTitle, ageGroup, duration, activities, location, hasReferenceImage, enhanceWithAI, importedWorkshop, selectedPlatform, showToast]);
 
     const copyPrompt = useCallback((scene: VideoScene, type: 'veo' | 'arabic') => {
         const text = type === 'veo' ? scene.veoPrompt : scene.arabicScript;
@@ -189,6 +202,68 @@ export default function VideoPage() {
         showToast(`تم نسخ ${type === 'veo' ? 'Video Prompt' : 'النص العربي'} ✓`, "success");
         setTimeout(() => setCopiedScene(null), 2000);
     }, [showToast]);
+
+    // NEW: Generate 3 AI reference images for a scene
+    const generateSceneImages = useCallback(async (sceneNumber: number, imagePrompt: string) => {
+        // Mark scene as generating
+        setImageGeneratingScenes(prev => new Set(prev).add(sceneNumber));
+
+        try {
+            const response = await fetch("/api/ai/generate-scene-images", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    imagePrompt,
+                    sceneNumber,
+                    count: 3,
+                    aspectRatio: "16:9"  // 16:9 for video reference images
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || "فشل توليد الصور");
+            }
+
+            // Store generated images for this scene
+            setSceneGeneratedImages(prev => ({
+                ...prev,
+                [sceneNumber]: data.images
+            }));
+
+            // Don't auto-select - let user see all 3 and choose
+            // Reset selection state so ImageSelector shows all options
+            setSceneSelectedImageIndex(prev => ({ ...prev, [sceneNumber]: -1 }));
+
+            showToast(`✅ تم توليد ${data.images.length} صور - اختر واحدة!`, "success");
+
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "خطأ غير معروف";
+            showToast(`❌ فشل توليد صور المشهد ${sceneNumber}: ${message}`, "error");
+        } finally {
+            // Remove from generating set
+            setImageGeneratingScenes(prev => {
+                const next = new Set(prev);
+                next.delete(sceneNumber);
+                return next;
+            });
+        }
+    }, [showToast]);
+
+    // NEW: Handle image selection from ImageSelector
+    const handleImageSelect = useCallback((sceneNumber: number, imageIndex: number) => {
+        const images = sceneGeneratedImages[sceneNumber];
+        if (!images || !images[imageIndex]) return;
+
+        setSceneSelectedImageIndex(prev => ({ ...prev, [sceneNumber]: imageIndex }));
+        setSceneReferenceUrls(prev => ({
+            ...prev,
+            [sceneNumber]: images[imageIndex].url
+        }));
+
+        showToast(`تم اختيار الصورة ${imageIndex + 1} للمشهد ${sceneNumber}`, "success");
+    }, [sceneGeneratedImages, showToast]);
 
     const copyAllPrompts = useCallback(() => {
         if (!videoScript) return;
@@ -615,6 +690,20 @@ export default function VideoPage() {
                             />
                         </div>
 
+                        {/* Location */}
+                        <div>
+                            <label className="text-sm font-medium text-foreground mb-2 block">
+                                مكان الورشة
+                            </label>
+                            <input
+                                type="text"
+                                value={location}
+                                onChange={(e) => setLocation(e.target.value)}
+                                placeholder="مثال: دار الثقافة بن عروس"
+                                className="w-full p-3 bg-background-secondary border border-border rounded-xl focus:border-accent focus:ring-1 focus:ring-accent"
+                            />
+                        </div>
+
                         {/* Reference Image Toggle */}
                         <label className="flex items-center gap-3 cursor-pointer">
                             <input
@@ -733,6 +822,12 @@ export default function VideoPage() {
                                     ...prev,
                                     [scene.sceneNumber]: url
                                 }))}
+                                // NEW: AI Image Generation props
+                                generatedImages={sceneGeneratedImages[scene.sceneNumber] || []}
+                                selectedImageIndex={sceneSelectedImageIndex[scene.sceneNumber] ?? -1}
+                                isGeneratingImages={imageGeneratingScenes.has(scene.sceneNumber)}
+                                onGenerateImages={() => generateSceneImages(scene.sceneNumber, scene.imagePrompt)}
+                                onSelectImage={(index) => handleImageSelect(scene.sceneNumber, index)}
                             />
                         ))}
 
@@ -783,6 +878,12 @@ function SceneCard({
     videoStatus,
     referenceUrl,
     onReferenceUrlChange,
+    // NEW: AI Image Generation props
+    generatedImages,
+    selectedImageIndex,
+    isGeneratingImages,
+    onGenerateImages,
+    onSelectImage,
 }: {
     scene: VideoScene;
     platform: VideoPlatform;
@@ -800,6 +901,12 @@ function SceneCard({
     };
     referenceUrl?: string;
     onReferenceUrlChange?: (url: string) => void;
+    // NEW: AI Image Generation props
+    generatedImages?: { url: string; uuid: string; thumbnailUrl?: string }[];
+    selectedImageIndex?: number;
+    isGeneratingImages?: boolean;
+    onGenerateImages?: () => void;
+    onSelectImage?: (index: number) => void;
 }) {
     const [showVeoPrompt, setShowVeoPrompt] = useState(false);
     const [showImagePrompt, setShowImagePrompt] = useState(false);
@@ -891,44 +998,85 @@ function SceneCard({
                 )}
             </div>
 
-            {/* 2.5 Reference Image Upload (from Nanobanana) */}
+            {/* 2.5 Reference Image - AI Generation + Manual Upload */}
             {onReferenceUrlChange && (
                 <div className="mb-4 p-4 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border-2 border-violet-200">
-                    <div className="flex items-center gap-2 mb-3">
-                        <span className="text-lg">📷</span>
-                        <label className="text-sm font-bold text-violet-800">
-                            صورة المشهد المرجعية (من Nanobanana)
-                        </label>
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <span className="text-lg">📷</span>
+                            <label className="text-sm font-bold text-violet-800">
+                                صورة المشهد المرجعية
+                            </label>
+                        </div>
+                        {/* AI Generate Button */}
+                        {onGenerateImages && !referenceUrl && (
+                            <button
+                                onClick={onGenerateImages}
+                                disabled={isGeneratingImages}
+                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${isGeneratingImages
+                                    ? "bg-purple-300 text-purple-600 cursor-wait"
+                                    : "bg-gradient-to-r from-purple-500 to-violet-600 text-white hover:from-purple-600 hover:to-violet-700 shadow-md hover:shadow-lg"
+                                    }`}
+                            >
+                                {isGeneratingImages ? (
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        جاري التوليد...
+                                    </span>
+                                ) : (
+                                    "✨ توليد 3 خيارات بالذكاء الاصطناعي"
+                                )}
+                            </button>
+                        )}
                     </div>
 
-                    {/* Show preview if image uploaded */}
-                    {referenceUrl ? (
-                        <div className="relative">
-                            <img
-                                src={referenceUrl}
-                                alt={`Scene ${scene.sceneNumber} reference`}
-                                className="w-full max-h-48 object-contain rounded-lg border-2 border-violet-300"
+                    {/* AI Generated Images Selector - ALWAYS show when images exist */}
+                    {generatedImages && generatedImages.length > 0 && onSelectImage && (
+                        <div className="mb-4">
+                            <ImageSelector
+                                images={generatedImages}
+                                selectedIndex={selectedImageIndex ?? -1}
+                                onSelect={onSelectImage}
+                                isLoading={isGeneratingImages || false}
+                                onRegenerate={onGenerateImages}
                             />
-                            <div className="mt-2 flex items-center justify-between">
-                                <p className="text-xs text-green-600">✅ صورة جاهزة - يمكنك توليد الفيديو</p>
-                                <button
-                                    onClick={() => onReferenceUrlChange("")}
-                                    className="text-xs text-red-500 hover:text-red-700"
-                                >
-                                    🗑️ حذف
-                                </button>
-                            </div>
+
+                            {/* Show selected image as confirmed reference */}
+                            {selectedImageIndex !== undefined && selectedImageIndex >= 0 && referenceUrl && (
+                                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm text-green-700 font-medium">
+                                            ✅ تم اختيار الصورة {selectedImageIndex + 1} كمرجع للفيديو
+                                        </p>
+                                        <button
+                                            onClick={() => onReferenceUrlChange("")}
+                                            className="text-xs text-red-500 hover:text-red-700"
+                                        >
+                                            🗑️ إلغاء
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    ) : (
+                    )}
+
+                    {/* Manual upload fallback - only show if no generated images */}
+                    {!generatedImages?.length && !referenceUrl && (
                         <div className="space-y-3">
+                            {/* Divider */}
+                            <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
+                                <span className="flex-1 h-px bg-gray-300"></span>
+                                <span>أو ارفع صورة يدوياً</span>
+                                <span className="flex-1 h-px bg-gray-300"></span>
+                            </div>
+
                             {/* Upload Button */}
-                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-violet-300 rounded-xl cursor-pointer bg-white hover:bg-violet-50 transition-colors">
-                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                    <svg className="w-8 h-8 mb-3 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-violet-300 rounded-xl cursor-pointer bg-white hover:bg-violet-50 transition-colors">
+                                <div className="flex flex-col items-center justify-center py-3">
+                                    <svg className="w-6 h-6 mb-2 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                     </svg>
-                                    <p className="mb-1 text-sm text-violet-600 font-medium">اضغط لرفع الصورة</p>
-                                    <p className="text-xs text-violet-400">PNG, JPG, WebP (max 10MB)</p>
+                                    <p className="text-sm text-violet-600 font-medium">رفع صورة</p>
                                 </div>
                                 <input
                                     type="file"
@@ -962,16 +1110,11 @@ function SceneCard({
                             </label>
 
                             {/* Or paste URL */}
-                            <div className="flex items-center gap-2 text-xs text-gray-400">
-                                <span className="flex-1 h-px bg-gray-200"></span>
-                                <span>أو الصق رابط</span>
-                                <span className="flex-1 h-px bg-gray-200"></span>
-                            </div>
                             <input
                                 type="url"
                                 value=""
                                 onChange={(e) => onReferenceUrlChange(e.target.value)}
-                                placeholder="https://..."
+                                placeholder="أو الصق رابط صورة..."
                                 className="w-full p-2 bg-white border border-violet-200 rounded-lg text-sm focus:border-violet-500"
                                 dir="ltr"
                             />

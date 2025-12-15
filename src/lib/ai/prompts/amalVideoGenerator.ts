@@ -2,8 +2,8 @@
  * Workshop Video Script Generator - Multi-Platform Support
  * 
  * Supports two platforms:
- * - Sora 2: 4 scenes × 15s, 16:9 landscape
- * - Veo 3.1 Fast: 6 scenes × 8s, 9:16 portrait
+ * - Sora 2: 4 scenes × 15s, 9:16 portrait
+ * - Veo 3.1 Fast: 5 scenes × 8s, 9:16 portrait
  * 
  * Generates:
  * 1. Nanobanana IMAGE prompts (to create scene images)
@@ -96,6 +96,9 @@ export interface WorkshopVideoInput {
     duration: string;
     activities: string[];
     objectives?: string[];
+    // Location customization
+    location?: string;
+    locationEn?: string;
     // Character customization
     characterName?: string;
     characterDescription?: string;
@@ -341,7 +344,7 @@ export function generateWorkshopVideo(
         // Veo 3.1 Fast: 6 scenes × 8 seconds, portrait format
         scenes = generateVeo31Scenes(workshop, characterName, characterDesc);
     } else {
-        // Sora 2: 4 scenes × 15 seconds, landscape format
+        // Sora 2: 4 scenes × 15 seconds, portrait format
         scenes = generateSora2Scenes(workshop, characterName, characterDesc);
     }
 
@@ -380,11 +383,17 @@ function generateVeo31Scenes(
 ): VideoScene[] {
     const activity1 = workshop.activities[0] || 'أنشطة إبداعية';
     const activity2 = workshop.activities[1] || 'ألعاب تعليمية';
+    const location = workshop.location || LOCATION;
+
+    // Dynamic learning benefits from objectives or defaults
+    const learningBenefits = workshop.objectives && workshop.objectives.length > 0
+        ? workshop.objectives.slice(0, 3).join(' و')
+        : 'الإبداع والتعاون والثقة بالنفس';
 
     return [
         // Scene 1: Hook + Welcome (combined for impact)
         generateVeoScene(1, 'hook', 'الترحيب والجذب', 'Hook & Welcome',
-            `مرحباً يا أصدقاء! أنا ${characterName} من ${LOCATION}! عندنا ورشة رائعة جداً قريباً وأنتم مدعوون!`,
+            `مرحباً يا أصدقاء! أنا ${characterName} من ${location}! عندنا ورشة رائعة جداً قريباً وأنتم مدعوون!`,
             workshop, characterName, characterDesc),
 
         // Scene 2: Theme Reveal
@@ -397,14 +406,14 @@ function generateVeo31Scenes(
             `سنتعلم أشياء رائعة معاً! مثل ${activity1} و${activity2}! كل هذا بطريقة ممتعة وتفاعلية!`,
             workshop, characterName, characterDesc),
 
-        // Scene 4: Learning Benefits (NEW)
+        // Scene 4: Learning Benefits (uses objectives if available)
         generateVeoScene(4, 'learning', 'الفوائد التعليمية', 'Learning Benefits',
-            `سنكتسب مهارات جديدة كالإبداع والتعاون والثقة بالنفس! تجربة لا تُنسى للأطفال!`,
+            `سنكتسب مهارات جديدة مثل ${learningBenefits}! تجربة لا تُنسى للأطفال!`,
             workshop, characterName, characterDesc),
 
         // Scene 5: Call to Action
         generateVeoScene(5, 'invitation', 'الدعوة للمشاركة', 'Call to Action',
-            `انضموا إلينا في ${LOCATION}! سجلوا أطفالكم الآن! نراكم قريباً يا أصدقاء!`,
+            `انضموا إلينا في ${location}! سجلوا أطفالكم الآن! نراكم قريباً يا أصدقاء!`,
             workshop, characterName, characterDesc),
     ];
 }
@@ -442,7 +451,7 @@ function generateVeoImagePrompt(
     workshop: WorkshopVideoInput,
     characterDesc: string
 ): string {
-    const basePrompt = `high-quality 3D animated style, vertical portrait composition 9:16, ${characterDesc}`;
+    const basePrompt = `high-quality 3D animated style, horizontal landscape composition 16:9, ${characterDesc}`;
 
     const prompts: Record<SceneType, string> = {
         hook: `${basePrompt}, close-up face shot, excited expression, hand near face waving, colorful background, mobile-optimized, family-friendly`,

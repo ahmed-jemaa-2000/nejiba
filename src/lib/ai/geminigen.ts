@@ -25,6 +25,8 @@ export interface GeminiGenRequest {
     | "Portrait Fashion"
     | "Stock Photo"
     | "Watercolor";
+    /** Optional: URL(s) to reference images for style/content guidance */
+    file_urls?: string | string[];
 }
 
 export interface GeminiGenResponse {
@@ -58,6 +60,14 @@ export async function generateImage(options: GeminiGenRequest): Promise<GeminiGe
 
     if (options.style) {
         formData.append("style", options.style);
+    }
+
+    // Add reference image URLs if provided
+    if (options.file_urls) {
+        const urls = Array.isArray(options.file_urls) ? options.file_urls : [options.file_urls];
+        urls.forEach(url => {
+            formData.append("file_urls", url);
+        });
     }
 
     const response = await fetch(GEMINIGEN_API_URL, {
@@ -194,3 +204,68 @@ Design requirements:
 export function getAspectRatio(format: "facebook" | "instagram"): "16:9" | "9:16" {
     return format === "facebook" ? "16:9" : "9:16";
 }
+
+/**
+ * Generate multiple images concurrently for selection
+ * Used for generating reference image options for video scenes
+ * 
+ * @param prompt - The main image prompt
+ * @param count - Number of images to generate (default 3)
+ * @param options - Additional options including aspectRatio, style, and referenceImageUrl
+ */
+export async function generateMultipleImages(
+    prompt: string,
+    count: number = 3,
+    options: {
+        aspectRatio?: "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
+        style?: GeminiGenRequest["style"];
+        model?: GeminiGenRequest["model"];
+        /** URL to a character/style reference image for consistency */
+        referenceImageUrl?: string;
+    } = {}
+): Promise<{ images: GeminiGenResponse[]; errors: string[] }> {
+    const {
+        aspectRatio = "16:9",
+        style = "3D Render",
+        model = "imagen-pro",
+        referenceImageUrl
+    } = options;
+
+    // Create slight prompt variations for diversity
+    const promptVariations = [
+        prompt, // Original
+        `${prompt} -- vibrant colors, dynamic composition`,
+        `${prompt} -- soft lighting, warm atmosphere`
+    ].slice(0, count);
+
+    const results: GeminiGenResponse[] = [];
+    const errors: string[] = [];
+
+    // Generate images with slight delay to respect rate limits (5rq/min)
+    for (let i = 0; i < promptVariations.length; i++) {
+        try {
+            // Add small delay between requests to avoid rate limiting
+            if (i > 0) {
+                await new Promise(r => setTimeout(r, 1500)); // 1.5s between requests
+            }
+
+            const result = await generateImage({
+                prompt: promptVariations[i],
+                model,
+                aspect_ratio: aspectRatio,
+                style,
+                // Pass reference image for character consistency
+                file_urls: referenceImageUrl ? referenceImageUrl : undefined
+            });
+
+            results.push(result);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown error";
+            errors.push(`Image ${i + 1}: ${message}`);
+            console.error(`Failed to generate image ${i + 1}:`, error);
+        }
+    }
+
+    return { images: results, errors };
+}
+
