@@ -447,11 +447,11 @@ function generateVeoImagePrompt(
     const prompts: Record<SceneType, string> = {
         hook: `${basePrompt}, close-up face shot, excited expression, hand near face waving, colorful background, mobile-optimized, family-friendly`,
         welcome: `${basePrompt}, upper body shot, welcoming gesture, cultural center entrance visible behind, warm lighting, mobile-optimized`,
-        theme: `${basePrompt}, medium shot, hands presenting outward, workshop title area at top, creative materials floating, mobile-optimized`,
+        theme: `${basePrompt}, medium shot, hands presenting outward, creative materials floating around, colorful background, mobile-optimized`,
         activity1: `${basePrompt}, showing craft materials, engaged expression, table with supplies visible, bright colors, mobile-optimized`,
         activity2: `${basePrompt}, demonstrating activity, thumbs up gesture, colorful workshop environment, mobile-optimized`,
         activities: `${basePrompt}, at workshop table with ${workshop.activities[0] || 'crafts'}, engaged expression, mobile-optimized`,
-        learning: `${basePrompt}, pointing to head (learning gesture), surrounded by floating skill icons (creativity, teamwork), inspiring background, mobile-optimized`,
+        learning: `${basePrompt}, pointing to head (learning gesture), surrounded by floating creative items (paintbrush, pencils, stars), inspiring background, mobile-optimized`,
         invitation: `${basePrompt}, full energy wave goodbye, confetti effect, sunset warm lighting, exciting farewell, mobile-optimized`
     };
 
@@ -497,12 +497,12 @@ STYLE: Warm, welcoming, inviting`,
         theme: `${baseStyle}
 
 ANIMATION (8 SEC):
-[0-3 sec] Character raises arms announcing theme
-[3-6 sec] Title appears above, character presents it
+[0-3 sec] Character raises arms excitedly, colorful items float around
+[3-6 sec] Character gestures presenting theme, sparkles appear
 [6-8 sec] Excited reaction, clapping
 
-CAMERA: Medium portrait shot, title overlay area at top
-STYLE: Dramatic reveal, sparkle effects`,
+CAMERA: Medium portrait shot
+STYLE: Dramatic reveal, sparkle effects, NO TEXT OVERLAYS`,
 
         activity1: `${baseStyle}
 

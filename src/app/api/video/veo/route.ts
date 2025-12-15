@@ -6,6 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 
 const GEMINIGEN_API_URL = "https://api.geminigen.ai/uapi/v1/video-gen/veo";
 
@@ -34,7 +36,7 @@ export async function POST(request: NextRequest) {
         console.log("=== Veo 3.1 Fast API Request ===");
         console.log("Prompt length:", prompt.length, "chars");
         console.log("Aspect ratio:", aspectRatio);
-        console.log("Prompt content:", prompt.substring(0, 500) + "...");
+        console.log("Prompt content:", prompt.substring(0, 300) + "...");
 
         // Create FormData for multipart request
         const formData = new FormData();
@@ -43,9 +45,46 @@ export async function POST(request: NextRequest) {
         formData.append("resolution", "1080p");
         formData.append("aspect_ratio", aspectRatio);
 
-        // Add reference image if provided
-        if (referenceImageUrl && referenceImageUrl.startsWith("http")) {
-            formData.append("ref_images", referenceImageUrl);
+        // Handle reference image (supports both local paths and URLs)
+        if (referenceImageUrl && referenceImageUrl.trim()) {
+            console.log("Reference image provided:", referenceImageUrl);
+
+            if (referenceImageUrl.startsWith("/") && !referenceImageUrl.startsWith("//")) {
+                // Local file - read and upload as blob
+                const localPath = path.join(process.cwd(), "public", referenceImageUrl);
+                console.log("Reading local reference image:", localPath);
+
+                if (fs.existsSync(localPath)) {
+                    const imageBuffer = fs.readFileSync(localPath);
+                    const extension = referenceImageUrl.split(".").pop()?.toLowerCase() || "jpeg";
+                    const mimeType = extension === "png" ? "image/png" :
+                        extension === "webp" ? "image/webp" : "image/jpeg";
+                    const imageBlob = new Blob([imageBuffer], { type: mimeType });
+                    formData.append("ref_images", imageBlob, `reference.${extension}`);
+                    console.log("Uploaded local file as ref_images blob");
+                } else {
+                    console.warn("Local reference file not found:", localPath);
+                }
+            } else if (referenceImageUrl.startsWith("http")) {
+                // External URL - pass directly
+                console.log("Using external reference URL");
+                formData.append("ref_images", referenceImageUrl);
+            } else if (referenceImageUrl.startsWith("data:")) {
+                // Base64 data URL - extract and upload
+                console.log("Processing base64 image data");
+                const matches = referenceImageUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+                if (matches) {
+                    const extension = matches[1];
+                    const base64Data = matches[2];
+                    const buffer = Buffer.from(base64Data, "base64");
+                    const mimeType = `image/${extension}`;
+                    const imageBlob = new Blob([buffer], { type: mimeType });
+                    formData.append("ref_images", imageBlob, `reference.${extension}`);
+                    console.log("Uploaded base64 image as ref_images blob");
+                }
+            }
+        } else {
+            console.log("No reference image provided");
         }
 
         const response = await fetch(GEMINIGEN_API_URL, {
