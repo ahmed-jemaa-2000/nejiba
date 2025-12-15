@@ -6,13 +6,28 @@ import { Button, Card, useToast } from "@/components/ui";
 import type { VideoScriptOutput, VideoScene } from "@/lib/ai/prompts/amalVideoGenerator";
 import type { WorkshopPlanData } from "@/lib/ai/providers/base";
 
+// Video generation status per scene
+interface SceneVideoStatus {
+    status: "idle" | "generating" | "completed" | "failed";
+    uuid?: string;
+    progress?: number;
+    videoUrl?: string;
+    errorMessage?: string;
+}
+
 export default function VideoPage() {
     const [workshopTitle, setWorkshopTitle] = useState("");
-    const [ageGroup, setAgeGroup] = useState("10-15 سنة");
+    const [ageGroup, setAgeGroup] = useState("10-15 سنة"); // Fixed default for kids program
     const [duration, setDuration] = useState("90 دقيقة");
     const [activities, setActivities] = useState("");
     const [hasReferenceImage, setHasReferenceImage] = useState(true);
     const [referenceImage, setReferenceImage] = useState<string | null>(null);
+
+    // Per-scene reference image URLs (uploaded from Nanobanana)
+    const [sceneReferenceUrls, setSceneReferenceUrls] = useState<Record<number, string>>({});
+
+    // Per-scene video generation status
+    const [sceneVideoStatus, setSceneVideoStatus] = useState<Record<number, SceneVideoStatus>>({});
 
     // New: AI Enhancement
     const [enhanceWithAI, setEnhanceWithAI] = useState(true);
@@ -173,7 +188,7 @@ export default function VideoPage() {
         if (!videoScript) return;
 
         let allText = `# فيديو ورشة: ${videoScript.workshopTitle} \n`;
-        allText += `الشخصية: ${videoScript.character.nameAr} \n`;
+        allText += `الشخصية: ${videoScript.characterName}\n`;
         allText += `الموقع: ${videoScript.location} \n`;
         allText += `المدة: ${videoScript.totalDuration} \n\n`;
 
@@ -194,7 +209,7 @@ export default function VideoPage() {
         if (!videoScript) return;
 
         let allText = `# فيديو ورشة: ${videoScript.workshopTitle}\n`;
-        allText += `الشخصية: ${videoScript.character.nameAr}\n`;
+        allText += `الشخصية: ${videoScript.characterName}\n`;
         allText += `الموقع: ${videoScript.location}\n`;
         allText += `المدة: ${videoScript.totalDuration}\n`;
         allText += `تاريخ التوليد: ${new Date().toLocaleDateString('ar-TN')}\n\n`;
@@ -221,6 +236,143 @@ export default function VideoPage() {
 
         showToast("تم تنزيل الملف ✓", "success");
     }, [videoScript, showToast]);
+
+    // Generate video for a scene using Sora 2 (uses per-scene reference image)
+    const generateSceneVideo = useCallback(async (scene: VideoScene) => {
+        // Set status to generating
+        setSceneVideoStatus(prev => ({
+            ...prev,
+            [scene.sceneNumber]: { status: "generating", progress: 0 }
+        }));
+
+        try {
+            // Use the animation prompt (motion-focused for Sora 2)
+            const promptContent = scene.veoPrompt;
+
+            // Get per-scene reference image URL (created from Nanobanana)
+            const referenceUrl = sceneReferenceUrls[scene.sceneNumber] || "";
+
+            // Call our Sora 2 API with optional reference image
+            const response = await fetch("/api/video/sora", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    prompt: promptContent,
+                    referenceImageUrl: referenceUrl,
+                    duration: 15,
+                    aspectRatio: "landscape"
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || "فشل إنشاء الفيديو");
+            }
+
+            // Start polling for status
+            const uuid = data.data.uuid;
+            setSceneVideoStatus(prev => ({
+                ...prev,
+                [scene.sceneNumber]: {
+                    status: "generating",
+                    uuid,
+                    progress: data.data.statusPercentage || 5
+                }
+            }));
+
+            showToast(`بدأ توليد فيديو المشهد ${scene.sceneNumber}... ⏳`, "success");
+
+            // Start polling
+            pollVideoStatus(scene.sceneNumber, uuid);
+
+        } catch (error) {
+            console.error("Video generation error:", error);
+            setSceneVideoStatus(prev => ({
+                ...prev,
+                [scene.sceneNumber]: {
+                    status: "failed",
+                    errorMessage: error instanceof Error ? error.message : "خطأ غير معروف"
+                }
+            }));
+            showToast(`فشل توليد الفيديو: ${error instanceof Error ? error.message : "خطأ"}`, "error");
+        }
+    }, [showToast, sceneReferenceUrls]);
+
+    // Poll for video status (30 second intervals for 3-5 min generation)
+    const pollVideoStatus = useCallback(async (sceneNumber: number, uuid: string) => {
+        const maxAttempts = 20; // 10 minutes max (30 sec intervals)
+        let attempts = 0;
+
+        const checkStatus = async () => {
+            try {
+                const response = await fetch(`/api/video/sora/status?uuid=${uuid}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error("فشل التحقق من الحالة");
+                }
+
+                const statusData = data.data;
+
+                if (statusData.status === "completed" && statusData.videoUrl) {
+                    setSceneVideoStatus(prev => ({
+                        ...prev,
+                        [sceneNumber]: {
+                            status: "completed",
+                            uuid,
+                            progress: 100,
+                            videoUrl: statusData.videoUrl
+                        }
+                    }));
+                    showToast(`تم إنشاء فيديو المشهد ${sceneNumber} بنجاح! 🎬`, "success");
+                    return;
+                }
+
+                if (statusData.status === "failed") {
+                    setSceneVideoStatus(prev => ({
+                        ...prev,
+                        [sceneNumber]: {
+                            status: "failed",
+                            uuid,
+                            errorMessage: statusData.errorMessage || "فشل التوليد"
+                        }
+                    }));
+                    showToast(`فشل توليد فيديو المشهد ${sceneNumber}`, "error");
+                    return;
+                }
+
+                // Still processing - estimate progress based on typical 3-5 min generation
+                const estimatedProgress = statusData.statusPercentage || Math.min(attempts * 5, 95);
+                setSceneVideoStatus(prev => ({
+                    ...prev,
+                    [sceneNumber]: {
+                        status: "generating",
+                        uuid,
+                        progress: estimatedProgress
+                    }
+                }));
+
+                // Continue polling every 30 seconds
+                attempts++;
+                if (attempts < maxAttempts) {
+                    setTimeout(checkStatus, 30000); // Check every 30 seconds
+                } else {
+                    showToast(`انتهت مهلة توليد المشهد ${sceneNumber}`, "error");
+                }
+
+            } catch (error) {
+                console.error("Status check error:", error);
+                attempts++;
+                if (attempts < maxAttempts) {
+                    setTimeout(checkStatus, 30000);
+                }
+            }
+        };
+
+        // Start first check after 30 seconds (give API time to start processing)
+        setTimeout(checkStatus, 30000);
+    }, [showToast]);
 
     const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -274,7 +426,7 @@ export default function VideoPage() {
                         )}
                         <div className="flex-1">
                             <h3 className="text-xl font-bold text-purple-800">أمل (Amal)</h3>
-                            <p className="text-sm text-purple-600">8 سنوات • مقدمة نادي الأطفال</p>
+                            <p className="text-sm text-purple-600">10-15 سنة • مقدمة نادي الأطفال</p>
                             <p className="text-xs text-purple-500 mt-1">دار الثقافة بن عروس</p>
                         </div>
                         <label className="cursor-pointer">
@@ -465,7 +617,7 @@ export default function VideoPage() {
                                 <div>
                                     <h3 className="text-xl font-bold text-emerald-800">{videoScript.workshopTitle}</h3>
                                     <p className="text-sm text-emerald-600">
-                                        {videoScript.character.nameAr} • {videoScript.location} • {videoScript.totalDuration}
+                                        {videoScript.characterName} • {videoScript.location} • {videoScript.totalDuration}
                                     </p>
                                 </div>
                                 <div className="flex gap-2">
@@ -476,6 +628,40 @@ export default function VideoPage() {
                                         📋 نسخ الكل
                                     </Button>
                                 </div>
+                            </div>
+                        </Card>
+
+                        {/* Sora 2 Info - Using reference image */}
+                        <Card variant="bordered" padding="md" className="bg-gradient-to-r from-purple-50 to-violet-50 border-purple-300">
+                            <div className="flex items-center justify-between flex-wrap gap-4">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-3xl">🎬</span>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-purple-800">Sora 2 Video Generation</h3>
+                                        <p className="text-sm text-purple-600">
+                                            15 ثانية لكل مشهد • 4 مشاهد = 60 ثانية إجمالي
+                                        </p>
+                                        <p className="text-xs text-purple-500 mt-1">
+                                            ⏱️ وقت التوليد: 3-5 دقائق لكل مشهد
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        // Generate all 4 scenes in parallel
+                                        videoScript?.scenes.forEach(scene => {
+                                            if (!sceneVideoStatus[scene.sceneNumber] ||
+                                                sceneVideoStatus[scene.sceneNumber].status === 'idle' ||
+                                                sceneVideoStatus[scene.sceneNumber].status === 'failed') {
+                                                generateSceneVideo(scene);
+                                            }
+                                        });
+                                        showToast("بدأ توليد جميع المشاهد بالتوازي... ⏳", "success");
+                                    }}
+                                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-700 text-white font-bold rounded-xl hover:from-purple-700 hover:to-violet-800 transition-all shadow-lg hover:shadow-xl"
+                                >
+                                    🚀 توليد الكل (4 مشاهد)
+                                </button>
                             </div>
                         </Card>
 
@@ -493,6 +679,13 @@ export default function VideoPage() {
                                     showToast("تم نسخ Image Prompt ✓", "success");
                                     setTimeout(() => setCopiedScene(null), 2000);
                                 }}
+                                onGenerateVideo={() => generateSceneVideo(scene)}
+                                videoStatus={sceneVideoStatus[scene.sceneNumber]}
+                                referenceUrl={sceneReferenceUrls[scene.sceneNumber] || ""}
+                                onReferenceUrlChange={(url) => setSceneReferenceUrls(prev => ({
+                                    ...prev,
+                                    [scene.sceneNumber]: url
+                                }))}
                             />
                         ))}
 
@@ -500,13 +693,11 @@ export default function VideoPage() {
                         <Card variant="bordered" padding="md" className="bg-amber-50 border-amber-200">
                             <h3 className="font-bold text-amber-800 mb-3">📌 خطوات الإنتاج</h3>
                             <ol className="space-y-2 text-amber-700 text-sm">
-                                <li><strong>1.</strong> أنشئ صورة أمل المرجعية أولاً (إذا لم تكن موجودة)</li>
-                                <li><strong>2.</strong> لكل مشهد: انسخ الـ Veo 2 Prompt</li>
-                                <li><strong>3.</strong> في Veo 2: ارفع صورة أمل المرجعية + الصق البرومبت</li>
-                                <li><strong>4.</strong> ولّد فيديو 15 ثانية لكل مشهد</li>
-                                <li><strong>5.</strong> ادمج المشاهد الأربعة في فيديو واحد</li>
-                                <li><strong>6.</strong> أضف صوت أمل باستخدام النصوص العربية</li>
-                                <li><strong>7.</strong> أضف موسيقى خلفية مناسبة للأطفال</li>
+                                <li><strong>1.</strong> لكل مشهد: انسخ الـ <span className="bg-indigo-100 px-1 rounded">Image Prompt</span></li>
+                                <li><strong>2.</strong> الصق في <span className="font-bold">Nanobanana</span> → حمّل الصورة المولدة</li>
+                                <li><strong>3.</strong> ارفع الصورة مباشرة في <span className="bg-violet-100 px-1 rounded">📷 صورة المشهد</span></li>
+                                <li><strong>4.</strong> اضغط <span className="bg-purple-100 px-1 rounded">🚀 توليد فيديو</span> لتحريكها</li>
+                                <li><strong>5.</strong> ادمج المشاهد + أضف الصوت 🎬</li>
                             </ol>
                         </Card>
                     </div>
@@ -539,16 +730,28 @@ function SceneCard({
     onCopyVeo,
     onCopyArabic,
     onCopyImage,
+    onGenerateVideo,
+    videoStatus,
+    referenceUrl,
+    onReferenceUrlChange,
 }: {
     scene: VideoScene;
     isCopied: boolean;
     onCopyVeo: () => void;
     onCopyArabic: () => void;
     onCopyImage: () => void;
+    onGenerateVideo?: () => void;
+    videoStatus?: {
+        status: "idle" | "generating" | "completed" | "failed";
+        progress?: number;
+        videoUrl?: string;
+        errorMessage?: string;
+    };
+    referenceUrl?: string;
+    onReferenceUrlChange?: (url: string) => void;
 }) {
     const [showVeoPrompt, setShowVeoPrompt] = useState(false);
     const [showImagePrompt, setShowImagePrompt] = useState(false);
-    const [showJsonFormat, setShowJsonFormat] = useState(false);  // Toggle for JSON view
 
     const sceneColors: Record<string, { bg: string; border: string; badge: string }> = {
         welcome: { bg: "bg-blue-50", border: "border-blue-300", badge: "bg-blue-600" },
@@ -637,6 +840,95 @@ function SceneCard({
                 )}
             </div>
 
+            {/* 2.5 Reference Image Upload (from Nanobanana) */}
+            {onReferenceUrlChange && (
+                <div className="mb-4 p-4 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border-2 border-violet-200">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="text-lg">📷</span>
+                        <label className="text-sm font-bold text-violet-800">
+                            صورة المشهد المرجعية (من Nanobanana)
+                        </label>
+                    </div>
+
+                    {/* Show preview if image uploaded */}
+                    {referenceUrl ? (
+                        <div className="relative">
+                            <img
+                                src={referenceUrl}
+                                alt={`Scene ${scene.sceneNumber} reference`}
+                                className="w-full max-h-48 object-contain rounded-lg border-2 border-violet-300"
+                            />
+                            <div className="mt-2 flex items-center justify-between">
+                                <p className="text-xs text-green-600">✅ صورة جاهزة - يمكنك توليد الفيديو</p>
+                                <button
+                                    onClick={() => onReferenceUrlChange("")}
+                                    className="text-xs text-red-500 hover:text-red-700"
+                                >
+                                    🗑️ حذف
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {/* Upload Button */}
+                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-violet-300 rounded-xl cursor-pointer bg-white hover:bg-violet-50 transition-colors">
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <svg className="w-8 h-8 mb-3 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                    </svg>
+                                    <p className="mb-1 text-sm text-violet-600 font-medium">اضغط لرفع الصورة</p>
+                                    <p className="text-xs text-violet-400">PNG, JPG, WebP (max 10MB)</p>
+                                </div>
+                                <input
+                                    type="file"
+                                    className="hidden"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+
+                                        const formData = new FormData();
+                                        formData.append("file", file);
+                                        formData.append("sceneNumber", scene.sceneNumber.toString());
+
+                                        try {
+                                            const res = await fetch("/api/upload/scene-image", {
+                                                method: "POST",
+                                                body: formData
+                                            });
+                                            const data = await res.json();
+                                            if (data.success && data.url) {
+                                                onReferenceUrlChange(data.url);
+                                            } else {
+                                                alert(data.error || "فشل رفع الصورة");
+                                            }
+                                        } catch (err) {
+                                            console.error("Upload error:", err);
+                                            alert("خطأ في رفع الصورة");
+                                        }
+                                    }}
+                                />
+                            </label>
+
+                            {/* Or paste URL */}
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                                <span className="flex-1 h-px bg-gray-200"></span>
+                                <span>أو الصق رابط</span>
+                                <span className="flex-1 h-px bg-gray-200"></span>
+                            </div>
+                            <input
+                                type="url"
+                                value=""
+                                onChange={(e) => onReferenceUrlChange(e.target.value)}
+                                placeholder="https://..."
+                                className="w-full p-2 bg-white border border-violet-200 rounded-lg text-sm focus:border-violet-500"
+                                dir="ltr"
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* 3. Veo 2 Video Prompt */}
             <div>
                 <button
@@ -662,52 +954,80 @@ function SceneCard({
 
                 {showVeoPrompt && (
                     <div className="mt-2 p-4 bg-gray-900 rounded-xl">
-                        {/* Format Toggle */}
+                        {/* Copy Button */}
                         <div className="flex items-center justify-between mb-3">
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setShowJsonFormat(false)}
-                                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${!showJsonFormat ? 'bg-emerald-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
-                                >
-                                    📝 Text
-                                </button>
-                                <button
-                                    onClick={() => setShowJsonFormat(true)}
-                                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${showJsonFormat ? 'bg-emerald-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
-                                >
-                                    {"{ }"} JSON
-                                </button>
-                            </div>
+                            <span className="text-sm text-gray-400">Animation Prompt for Sora 2</span>
                             <button
-                                onClick={() => {
-                                    if (showJsonFormat && scene.veoPromptJSON) {
-                                        navigator.clipboard.writeText(JSON.stringify(scene.veoPromptJSON, null, 2));
-                                    } else {
-                                        onCopyVeo();
-                                    }
-                                }}
+                                onClick={onCopyVeo}
                                 className="px-4 py-2 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-400 transition-colors"
                             >
-                                📋 نسخ {showJsonFormat ? 'JSON' : 'Video Prompt'}
+                                📋 نسخ Video Prompt
                             </button>
                         </div>
 
                         {/* Prompt Display */}
-                        {showJsonFormat && scene.veoPromptJSON ? (
-                            <pre
-                                dir="ltr"
-                                className="text-sm text-amber-300 font-mono whitespace-pre-wrap overflow-auto max-h-80"
-                            >
-                                {JSON.stringify(scene.veoPromptJSON, null, 2)}
-                            </pre>
-                        ) : (
-                            <pre
-                                dir="ltr"
-                                className="text-sm text-green-400 font-mono whitespace-pre-wrap overflow-auto max-h-64"
-                            >
-                                {scene.veoPrompt}
-                            </pre>
-                        )}
+                        <pre
+                            dir="ltr"
+                            className="text-sm text-green-400 font-mono whitespace-pre-wrap overflow-auto max-h-64"
+                        >
+                            {scene.veoPrompt}
+                        </pre>
+                    </div>
+                )}
+
+                {/* 🆕 Generate Video Button with Sora 2 */}
+                {onGenerateVideo && (
+                    <div className="mt-4 p-4 bg-gradient-to-r from-violet-100 to-purple-100 rounded-xl border-2 border-purple-300">
+                        <div className="flex items-center justify-between flex-wrap gap-3">
+                            <div className="flex items-center gap-3">
+                                <span className="text-2xl">🎬</span>
+                                <div>
+                                    <p className="font-bold text-purple-800">Sora 2 Video</p>
+                                    <p className="text-xs text-purple-600">15 ثانية • 720p</p>
+                                </div>
+                            </div>
+
+                            {/* Status-based UI */}
+                            {!videoStatus || videoStatus.status === "idle" ? (
+                                <button
+                                    onClick={onGenerateVideo}
+                                    className="px-6 py-3 rounded-xl font-bold transition-all bg-gradient-to-r from-purple-500 to-violet-600 text-white hover:from-purple-600 hover:to-violet-700 shadow-lg hover:shadow-xl"
+                                >
+                                    🚀 توليد فيديو Sora 2
+                                </button>
+                            ) : videoStatus.status === "generating" ? (
+                                <div className="flex items-center gap-3">
+                                    <div className="w-40 h-3 bg-purple-200 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-purple-500 to-violet-600 transition-all duration-500 animate-pulse"
+                                            style={{ width: `${videoStatus.progress || 10}%` }}
+                                        />
+                                    </div>
+                                    <span className="text-sm text-purple-700 font-medium">
+                                        {videoStatus.progress || 0}% ⏳
+                                    </span>
+                                </div>
+                            ) : videoStatus.status === "completed" && videoStatus.videoUrl ? (
+                                <a
+                                    href={videoStatus.videoUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-6 py-3 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-colors shadow-lg"
+                                >
+                                    ⬇️ تحميل الفيديو
+                                </a>
+                            ) : videoStatus.status === "failed" ? (
+                                <div className="flex items-center gap-3">
+                                    <span className="text-red-600 text-sm">❌ {videoStatus.errorMessage || "فشل"}</span>
+                                    <button
+                                        onClick={onGenerateVideo}
+                                        className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600"
+                                    >
+                                        🔄 إعادة
+                                    </button>
+                                </div>
+                            ) : null}
+                        </div>
                     </div>
                 )}
             </div>

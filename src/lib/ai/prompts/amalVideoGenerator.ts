@@ -1,29 +1,20 @@
 /**
- * Amal Video Script Generator
+ * Workshop Video Script Generator - Image-First Workflow
  * 
- * Generates dynamic Veo 2 video prompts for workshop promotions
- * featuring أمل (Amal) as the presenter at نادي الأطفال
+ * Generates:
+ * 1. Nanobanana IMAGE prompts (to create scene images)
+ * 2. Sora 2 ANIMATION prompts (to animate those images)
+ * 3. Arabic voiceover scripts
  * 
- * Structure:
- * - Scene 1: Welcome - أمل ترحب بالأطفال
- * - Scene 2: Theme - أمل تعلن عن الورشة
- * - Scene 3: Activities - أمل تشرح الأنشطة
- * - Scene 4: Invitation - أمل تدعو للانضمام
+ * Workflow:
+ * - Generate image prompts → Create in Nanobanana
+ * - Upload image URLs → Use as Sora 2 references  
+ * - Generate animated videos → Add voiceover later
  */
 
 // ============================================================================
 // TYPES
 // ============================================================================
-
-export interface Character {
-    id: string;
-    nameAr: string;
-    nameEn: string;
-    age: number;
-    description: string;
-    visualDescription: string;
-    greeting: string;
-}
 
 export interface VideoScene {
     sceneNumber: number;
@@ -31,59 +22,19 @@ export interface VideoScene {
     titleAr: string;
     titleEn: string;
     duration: number;
+    // Arabic voiceover script
     arabicScript: string;
-    veoPrompt: string;
+    // Nanobanana image prompt (to create the scene image)
     imagePrompt: string;
-    // NEW: Structured JSON format for Sora 2
-    veoPromptJSON?: SoraPromptJSON;
-}
-
-// Sora 2 JSON structure for expert-level prompts
-export interface SoraPromptJSON {
-    segment: {
-        id: number;
-        duration: number;
-        sceneType: string;
-        title: string;
-        titleAr: string;
-        timing: {
-            beats: Array<{
-                start: number;
-                end: number;
-                phase: string;
-                action: string;
-            }>;
-        };
-        camera: {
-            movement: string;
-            startShot: string;
-            endShot: string;
-            speed: string;
-        };
-        character: {
-            name: string;
-            nameAr: string;
-            visualDescription: string;
-            pose: string;
-            expression: string;
-        } | null;
-        environment: {
-            location: string;
-            lighting: string;
-            atmosphere: string;
-            props: string[];
-        };
-        technical: {
-            style: string;
-            quality: string;
-            effects: string[];
-        };
-    };
+    // Sora 2 animation prompt (animates the reference image)
+    animationPrompt: string;
+    // Legacy field for backward compatibility
+    veoPrompt: string;
 }
 
 export interface VideoScriptOutput {
     workshopTitle: string;
-    character: Character;
+    characterName: string;
     location: string;
     totalDuration: string;
     scenes: VideoScene[];
@@ -96,331 +47,199 @@ export interface WorkshopVideoInput {
     duration: string;
     activities: string[];
     objectives?: string[];
+    // Character customization
+    characterName?: string;
+    characterDescription?: string;
 }
 
 // ============================================================================
-// CHARACTERS
+// DEFAULT VALUES
 // ============================================================================
 
-export const CHARACTERS: Record<string, Character> = {
-    amal: {
-        id: "amal",
-        nameAr: "أمل",
-        nameEn: "Amal",
-        age: 8,
-        description: "مقدمة نادي الأطفال في دار الثقافة بن عروس",
-        visualDescription: `Amal (أمل) - Pixar 3D animated style:
-- 8-year-old Arab girl
-- Warm brown eyes, bright curious expression
-- Black hair in two neat braids with purple and teal ribbons
-- Light olive skin, friendly smile with slight dimples
-- Wearing purple sweater with star decorations, jeans, white sneakers
-- Energetic, welcoming, enthusiastic personality`,
-        greeting: "أهلاً وسهلاً! أنا أمل"
-    },
-    noor: {
-        id: "noor",
-        nameAr: "نور",
-        nameEn: "Noor",
-        age: 10,
-        description: "مقدمة ورش العمل الإبداعية",
-        visualDescription: `Noor (نور) - Pixar 3D animated style:
-- 8-10 year old Middle Eastern girl
-- Warm brown eyes, expressive eyebrows, friendly smile
-- Black hair in high ponytail with colorful ribbon
-- Colorful casual clothes, purple/pink palette
-- Animated, welcoming, energetic personality`,
-        greeting: "السلام عليكم أنا نور"
-    }
+// Character interface for backward compatibility with route
+export interface Character {
+    id: string;
+    nameAr: string;
+    nameEn: string;
+    age: string;
+    description: string;
+    visualDescription: string;
+}
+
+const DEFAULT_CHARACTER: Character = {
+    id: "amal",
+    nameAr: "أمل",
+    nameEn: "Amal",
+    age: "طالبة",
+    description: "Tunisian animated character, friendly and enthusiastic workshop host",
+    visualDescription: "Tunisian animated character, light olive skin, warm brown eyes, black braided hair with colorful ribbons, purple sweater with star decorations, jeans, white sneakers, friendly smile, expressive face"
 };
 
-export const DEFAULT_CHARACTER = CHARACTERS.amal;
-export const LOCATION = "نادي الأطفال - دار الثقافة بن عروس";
+// Exported CHARACTERS for route compatibility
+export const CHARACTERS: Record<string, Character> = {
+    amal: DEFAULT_CHARACTER
+};
+
+const LOCATION = "دار الثقافة بن عروس";
+const LOCATION_EN = "Tunisian cultural center Ben Arous";
 
 // ============================================================================
-// JSON BUILDER HELPER
+// EXPERT NANOBANANA IMAGE PROMPTS
+// These create the scene images you'll use as Sora 2 references
 // ============================================================================
 
-function buildSceneJSON(
-    sceneNumber: number,
-    sceneType: string,
-    title: string,
-    titleAr: string,
-    character: Character,
+function generateImagePrompt(
+    sceneType: 'welcome' | 'theme' | 'activities' | 'invitation',
     workshop: WorkshopVideoInput,
-    cameraMovement: string = "push_in",
-    cameraStart: string = "wide_shot",
-    cameraEnd: string = "medium_shot"
-): SoraPromptJSON {
-    const timingBeats = [
-        { start: 0, end: 5, phase: "opening", action: `${character.nameEn} enters and engages` },
-        { start: 5, end: 10, phase: "development", action: "Main action builds" },
-        { start: 10, end: 15, phase: "conclusion", action: "Scene resolves with energy" }
-    ];
+    characterDesc: string
+): string {
+    // Expert Nanobanana prompt format - concise but detailed
+    // Include: style, character, pose, setting, lighting, composition
 
-    const props = sceneType === 'activities'
-        ? workshop.activities.slice(0, 3)
-        : ["Tunisian tiles", "Cultural decorations", "Welcome sign"];
+    const prompts = {
+        welcome: `Pixar 3D animation style, ${characterDesc}, standing at colorful cultural center entrance, one hand raised waving hello, warm welcoming smile, wearing purple sweater with stars, background shows Tunisian decorated archway with morning sunlight, warm golden lighting, medium shot centered composition, high quality render, vibrant colors, 8k detailed`,
 
-    return {
-        segment: {
-            id: sceneNumber,
-            duration: 15,
-            sceneType,
-            title,
-            titleAr,
-            timing: { beats: timingBeats },
-            camera: {
-                movement: cameraMovement,
-                startShot: cameraStart,
-                endShot: cameraEnd,
-                speed: "smooth"
-            },
-            character: {
-                name: character.nameEn,
-                nameAr: character.nameAr,
-                visualDescription: character.visualDescription,
-                pose: "welcoming, energetic",
-                expression: "warm smile, excited eyes"
-            },
-            environment: {
-                location: LOCATION,
-                lighting: "warm, inviting, morning/afternoon light",
-                atmosphere: "cheerful, child-friendly, cultural",
-                props
-            },
-            technical: {
-                style: "Pixar 3D animation, high quality",
-                quality: "cinema-grade, smooth 24fps",
-                effects: ["subtle particle effects", "warm color grading"]
-            }
-        }
+        theme: `Pixar 3D animation style, ${characterDesc}, inside bright workshop room, excited expression with hands open presenting, eyes sparkling, purple sweater with stars, surrounded by colorful art supplies and creative posters, natural window light, medium shot slightly off-center, magical wonder atmosphere, high quality render, 8k detailed`,
+
+        activities: `Pixar 3D animation style, ${characterDesc}, at workshop table holding craft materials, engaged happy expression, giving thumbs up, purple sweater with stars, table covered with ${workshop.activities.slice(0, 2).join(" and ")} supplies, organized shelves behind, bright studio lighting, medium shot with table visible, creative fun atmosphere, high quality render, 8k detailed`,
+
+        invitation: `Pixar 3D animation style, ${characterDesc}, waving goodbye enthusiastically with both hands, biggest joyful smile, slight bouncy pose, purple sweater with stars, standing at cultural center entrance, golden hour sunset lighting with warm glow, colorful confetti in air, full body shot centered, celebratory festive mood, high quality render, 8k detailed`
     };
+
+    return prompts[sceneType];
+}
+
+// ============================================================================
+// EXPERT SORA 2 ANIMATION PROMPTS  
+// These animate your reference images - focus on MOTION not character
+// ============================================================================
+
+function generateAnimationPrompt(
+    sceneType: 'welcome' | 'theme' | 'activities' | 'invitation',
+    workshop: WorkshopVideoInput
+): string {
+    // Critical: Emphasize character consistency, no lip-sync, and realistic quality
+    const baseStyle = `[CRITICAL RULES]
+1. PRESERVE CHARACTER IDENTITY: The character's FACE, APPEARANCE, CLOTHING must remain EXACTLY as shown in the reference. Do NOT change facial features.
+
+2. SILENT CHARACTER - NO LIP MOVEMENT: Character must NOT speak, talk, or move lips. Mouth stays closed or in natural resting smile. Voiceover will be added separately in post-production.
+
+3. BODY LANGUAGE ONLY: Express emotions through gestures, body movement, facial expressions (eyes, eyebrows, smile) - but NO mouth opening/closing as if speaking.
+
+Style: Pixar 3D animation, photorealistic quality rendering, cinema-grade, smooth 24fps.
+Duration: 15 seconds continuous motion.`;
+
+    const prompts = {
+        welcome: `${baseStyle}
+
+CHARACTER CONSISTENCY: Keep the exact face and appearance from the reference image. Do not modify facial features.
+
+MOTION SEQUENCE:
+[0-5 sec] Character walks into frame from right side, waving arm enthusiastically
+[5-10 sec] Stops at center, clasps hands together with excitement, natural smile
+[10-15 sec] Opens arms wide in welcoming gesture, small happy bounce
+
+CAMERA: Starts wide shot, gentle smooth push-in to medium shot
+MOTION: Fluid natural movement, realistic gestures, bouncy playful energy
+LIGHTING: Warm consistent lighting, soft natural shadows
+QUALITY: Photorealistic rendering, sharp details, no artifacts`,
+
+        theme: `${baseStyle}
+
+CHARACTER CONSISTENCY: Keep the exact face and appearance from the reference image. Do not modify facial features.
+
+MOTION SEQUENCE:
+[0-5 sec] Character gestures dramatically with both hands, showing excitement
+[5-10 sec] Points outward as if revealing something magical, slight spin
+[10-15 sec] Claps hands with joy, colorful sparkles drift into view
+
+CAMERA: Medium shot, slow gentle orbit around character
+MOTION: Smooth expressive gestures, natural body language
+LIGHTING: Bright cheerful daylight, soft even shadows
+QUALITY: Photorealistic rendering, consistent character look`,
+
+        activities: `${baseStyle}
+
+CHARACTER CONSISTENCY: Keep the exact face and appearance from the reference image. Do not modify facial features.
+
+MOTION SEQUENCE:  
+[0-5 sec] Character at table, counts on fingers showing activities
+[5-10 sec] Picks up craft materials from table, shows them to camera
+[10-15 sec] Gives enthusiastic thumbs up, genuinely happy smile
+
+CAMERA: Medium shot, slight tracking following hand gestures
+MOTION: Quick natural hand movements, engaged facial expressions
+LIGHTING: Bright studio lighting, clean professional look
+QUALITY: Photorealistic, sharp focus on face and materials`,
+
+        invitation: `${baseStyle}
+
+CHARACTER CONSISTENCY: Keep the exact face and appearance from the reference image. Do not modify facial features.
+
+MOTION SEQUENCE:
+[0-5 sec] Character holds up craft creation proudly, showing to camera
+[5-10 sec] Waves goodbye with both hands, does small excited jump
+[10-15 sec] Keeps waving as camera pulls back, confetti appears
+
+CAMERA: Starts medium shot, smooth pull-back to wide shot, slight upward tilt
+MOTION: Energetic waving, bouncy jump, floating confetti particles
+LIGHTING: Golden hour sunset tones, warm glowing atmosphere
+QUALITY: Cinema-grade rendering, beautiful soft lighting`
+    };
+
+    return prompts[sceneType];
+}
+
+// ============================================================================
+// ARABIC SCRIPTS FOR VOICEOVER
+// ============================================================================
+
+function generateArabicScript(
+    sceneType: 'welcome' | 'theme' | 'activities' | 'invitation',
+    workshop: WorkshopVideoInput,
+    characterName: string
+): string {
+    const scripts = {
+        welcome: `أهلاً وسهلاً! أنا ${characterName}! مرحباً بكم في نادي الأطفال في ${LOCATION}! اليوم عندنا ورشة رائعة جداً... هيّا نكتشفها معاً!`,
+
+        theme: `ورشتنا اليوم بعنوان: "${workshop.titleAr}"! ورشة ممتعة جداً للأطفال من ${workshop.ageGroup}. مدتها ${workshop.duration}!`,
+
+        activities: `في هذه الورشة سنقوم بأنشطة رائعة! ${workshop.activities.slice(0, 3).map((a, i) => `${i + 1}. ${a}`).join("، ")}. كلها أنشطة ممتعة ومفيدة!`,
+
+        invitation: `انضموا إلينا في ${LOCATION}! ننتظركم في ورشة "${workshop.titleAr}". نراكم قريباً إن شاء الله!`
+    };
+
+    return scripts[sceneType];
 }
 
 // ============================================================================
 // SCENE GENERATORS
 // ============================================================================
 
-function generateWelcomeScene(
+function generateScene(
+    sceneNumber: number,
+    sceneType: 'welcome' | 'theme' | 'activities' | 'invitation',
+    titleAr: string,
+    titleEn: string,
     workshop: WorkshopVideoInput,
-    character: Character,
-    hasReferenceImage: boolean
+    characterName: string,
+    characterDesc: string
 ): VideoScene {
-    const refNote = hasReferenceImage
-        ? `[USE REFERENCE IMAGE: ${character.nameEn} character]`
-        : "";
+    const imagePrompt = generateImagePrompt(sceneType, workshop, characterDesc);
+    const animationPrompt = generateAnimationPrompt(sceneType, workshop);
+    const arabicScript = generateArabicScript(sceneType, workshop, characterName);
 
     return {
-        sceneNumber: 1,
-        sceneType: 'welcome',
-        titleAr: "الترحيب",
-        titleEn: "Welcome",
+        sceneNumber,
+        sceneType,
+        titleAr,
+        titleEn,
         duration: 15,
-        arabicScript: `${character.greeting}! مرحباً بكم في ${LOCATION}! اليوم لدينا ورشة رائعة جداً... هيّا نكتشفها معاً!`,
-        veoPrompt: `${refNote}
-
-VEO 2 - 15 SECOND SCENE
-
-CHARACTER: ${character.nameEn} (${character.nameAr})
-${character.visualDescription}
-
-SCENE: WELCOME TO KIDS CLUB
-[0:00-0:05] ${character.nameEn} walks into frame from right, waving enthusiastically at camera with big smile
-[0:05-0:10] She stops center frame, hands together in excitement, eyes sparkling
-[0:10-0:15] Opens arms wide in welcoming gesture, slight bounce of joy
-
-SETTING: 
-- Entrance of دار الثقافة بن عروس (Tunisian cultural center)
-- Colorful "نادي الأطفال" sign visible
-- Warm morning sunlight, welcoming atmosphere
-- Tunisian decorative tiles and arches
-
-CAMERA: Start wide shot, gentle push-in to medium shot
-MOOD: Warm, welcoming, exciting, child-friendly
-STYLE: Pixar 3D animation, smooth fluid movements, highly expressive character`,
-        imagePrompt: `${refNote}
-Pixar 3D animated scene - WELCOME:
-
-${character.visualDescription}
-
-POSE: ${character.nameEn} stands at entrance, waving warmly with big smile
-
-SETTING: Entrance of ${LOCATION}, Tunisian architecture, colorful tiles, morning light
-
-MOOD: Warm, inviting
-COMPOSITION: Medium shot, character centered, "نادي الأطفال" sign visible`,
-        veoPromptJSON: buildSceneJSON(1, 'welcome', 'Welcome', 'الترحيب', character, workshop, 'push_in', 'wide_shot', 'medium_shot')
-    };
-}
-
-function generateThemeScene(
-    workshop: WorkshopVideoInput,
-    character: Character,
-    hasReferenceImage: boolean
-): VideoScene {
-    const refNote = hasReferenceImage
-        ? `[USE REFERENCE IMAGE: ${character.nameEn} character]`
-        : "";
-
-    return {
-        sceneNumber: 2,
-        sceneType: 'theme',
-        titleAr: "موضوع الورشة",
-        titleEn: "Workshop Theme",
-        duration: 15,
-        arabicScript: `ورشتنا اليوم بعنوان: "${workshop.titleAr}"! ورشة ممتعة جداً للأطفال من ${workshop.ageGroup}. مدتها ${workshop.duration}!`,
-        veoPrompt: `${refNote}
-
-VEO 2 - 15 SECOND SCENE
-
-CHARACTER: ${character.nameEn} (${character.nameAr})
-${character.visualDescription}
-
-SCENE: WORKSHOP THEME REVEAL
-[0:00-0:05] ${character.nameEn} gestures dramatically, workshop title "${workshop.titleAr}" animates in with sparkle effects
-[0:05-0:10] Camera orbits slightly as she presents the theme with excitement
-[0:10-0:15] She claps hands together, colorful workshop materials float into view
-
-TITLE DISPLAY: "${workshop.titleAr}" in beautiful Arabic calligraphy, glowing effect
-
-SETTING:
-- Inside the cultural center workshop room
-- Colorful materials and decorations
-- Bright, cheerful atmosphere
-
-CAMERA: Dynamic movement, slight orbit around character and title
-MOOD: Magical reveal, anticipation building
-STYLE: Pixar 3D, particle effects on title, vibrant colors`,
-        imagePrompt: `${refNote}
-Pixar 3D animated scene - THEME REVEAL:
-
-${character.visualDescription}
-
-POSE: ${character.nameEn} presenting workshop title with excitement
-
-TITLE: "${workshop.titleAr}" floating in Arabic calligraphy
-
-SETTING: Workshop room, colorful materials, bright atmosphere
-
-MOOD: Exciting, magical
-COMPOSITION: Character left, title display right`,
-        veoPromptJSON: buildSceneJSON(2, 'theme', 'Workshop Theme', 'موضوع الورشة', character, workshop, 'orbit', 'medium_shot', 'medium_shot')
-    };
-}
-
-function generateActivitiesScene(
-    workshop: WorkshopVideoInput,
-    character: Character,
-    hasReferenceImage: boolean
-): VideoScene {
-    const refNote = hasReferenceImage
-        ? `[USE REFERENCE IMAGE: ${character.nameEn} character]`
-        : "";
-
-    const activitiesList = workshop.activities.slice(0, 3);
-    const activitiesText = activitiesList.map((a, i) => `${i + 1}. ${a}`).join("، ");
-
-    return {
-        sceneNumber: 3,
-        sceneType: 'activities',
-        titleAr: "ماذا سنفعل",
-        titleEn: "What We'll Do",
-        duration: 15,
-        arabicScript: `في هذه الورشة سنقوم بأنشطة رائعة! ${activitiesText}. كلها أنشطة ممتعة ومفيدة!`,
-        veoPrompt: `${refNote}
-
-VEO 2 - 15 SECOND SCENE
-
-CHARACTER: ${character.nameEn} (${character.nameAr})
-${character.visualDescription}
-
-SCENE: ACTIVITIES PREVIEW
-[0:00-0:05] ${character.nameEn} counts on fingers, activity icons animate in one by one
-[0:05-0:10] Quick montage of activity representations: ${activitiesList.join(", ")}
-[0:10-0:15] ${character.nameEn} gives thumbs up, excited expression
-
-ACTIVITIES SHOWN:
-${activitiesList.map((a, i) => `${i + 1}. ${a}`).join("\n")}
-
-SETTING:
-- Workshop table with colorful materials
-- Craft supplies, art materials visible
-- Dynamic, energetic atmosphere
-
-CAMERA: Medium shots with quick cuts between activities
-MOOD: Fun, creative, engaging
-STYLE: Pixar 3D, animated icons, vibrant transitions`,
-        imagePrompt: `${refNote}
-Pixar 3D animated scene - ACTIVITIES:
-
-${character.visualDescription}
-
-POSE: ${character.nameEn} showing craft materials, excited expression
-
-ACTIVITIES: ${activitiesList.join(", ")}
-
-SETTING: Workshop table, colorful materials, bright lighting
-
-MOOD: Creative, fun
-COMPOSITION: Medium shot, materials prominently displayed`,
-        veoPromptJSON: buildSceneJSON(3, 'activities', 'What We Do', 'ماذا سنفعل', character, workshop, 'tracking', 'medium_shot', 'close_up')
-    };
-}
-
-function generateInvitationScene(
-    workshop: WorkshopVideoInput,
-    character: Character,
-    hasReferenceImage: boolean
-): VideoScene {
-    const refNote = hasReferenceImage
-        ? `[USE REFERENCE IMAGE: ${character.nameEn} character]`
-        : "";
-
-    return {
-        sceneNumber: 4,
-        sceneType: 'invitation',
-        titleAr: "الدعوة",
-        titleEn: "Invitation",
-        duration: 15,
-        arabicScript: `انضموا إلينا في ${LOCATION}! ننتظركم في ورشة "${workshop.titleAr}". نراكم قريباً إن شاء الله!`,
-        veoPrompt: `${refNote}
-
-VEO 2 - 15 SECOND SCENE
-
-CHARACTER: ${character.nameEn} (${character.nameAr})
-${character.visualDescription}
-
-SCENE: INVITATION & GOODBYE
-[0:00-0:05] ${character.nameEn} holds finished craft creation proudly, big smile
-[0:05-0:10] She waves goodbye with both hands, slight jumping with excitement
-[0:10-0:15] Camera pulls back, sparkles and confetti appear, "نراكم قريباً!" text
-
-SETTING:
-- Back at entrance of ${LOCATION}
-- Golden hour/sunset lighting
-- Workshop creations visible in background
-- Festive confetti and sparkles
-
-TEXT OVERLAY: Space for "نراكم قريباً!" and contact info
-
-CAMERA: Start medium, pull back to wide, uplifting movement
-MOOD: Celebratory, inviting, warm goodbye
-STYLE: Pixar 3D, particle effects, warm lighting`,
-        imagePrompt: `${refNote}
-Pixar 3D animated scene - INVITATION:
-
-${character.visualDescription}
-
-POSE: ${character.nameEn} waving goodbye with both hands, biggest smile, jumping
-
-SETTING: Entrance of ${LOCATION}, sunset lighting, confetti
-
-TEXT: Space for "نراكم قريباً في نادي الأطفال!"
-
-MOOD: Celebratory, inviting
-COMPOSITION: Full body, festive atmosphere`,
-        veoPromptJSON: buildSceneJSON(4, 'invitation', 'Invitation', 'الدعوة', character, workshop, 'pull_back', 'medium_shot', 'wide_shot')
+        arabicScript,
+        imagePrompt,
+        animationPrompt,
+        // veoPrompt is the animation prompt for backward compatibility
+        veoPrompt: animationPrompt
     };
 }
 
@@ -432,24 +251,28 @@ export function generateWorkshopVideo(
     workshop: WorkshopVideoInput,
     options: {
         characterId?: string;
-        hasReferenceImage?: boolean;
+        characterName?: string;
+        characterDescription?: string;
+        hasReferenceImage?: boolean; // Not used but kept for compatibility
     } = {}
 ): VideoScriptOutput {
-    const { characterId = 'amal', hasReferenceImage = true } = options;
-    const character = CHARACTERS[characterId] || DEFAULT_CHARACTER;
+    // Use custom character or default - support both characterId and characterName
+    const character = options.characterId ? CHARACTERS[options.characterId] || DEFAULT_CHARACTER : DEFAULT_CHARACTER;
+    const characterName = options.characterName || workshop.characterName || character.nameAr;
+    const characterDesc = options.characterDescription || workshop.characterDescription || character.visualDescription;
 
     const scenes: VideoScene[] = [
-        generateWelcomeScene(workshop, character, hasReferenceImage),
-        generateThemeScene(workshop, character, hasReferenceImage),
-        generateActivitiesScene(workshop, character, hasReferenceImage),
-        generateInvitationScene(workshop, character, hasReferenceImage),
+        generateScene(1, 'welcome', 'الترحيب', 'Welcome', workshop, characterName, characterDesc),
+        generateScene(2, 'theme', 'موضوع الورشة', 'Workshop Theme', workshop, characterName, characterDesc),
+        generateScene(3, 'activities', 'ماذا سنفعل', 'Activities', workshop, characterName, characterDesc),
+        generateScene(4, 'invitation', 'الدعوة', 'Invitation', workshop, characterName, characterDesc),
     ];
 
     const totalSeconds = scenes.reduce((sum, s) => sum + s.duration, 0);
 
     return {
         workshopTitle: workshop.titleAr,
-        character,
+        characterName,
         location: LOCATION,
         totalDuration: `${totalSeconds} ثانية (${scenes.length} مشاهد × 15 ثانية)`,
         scenes,

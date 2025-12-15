@@ -94,6 +94,12 @@ export default function Home() {
         {/* Quick Access Links */}
         <div className="flex flex-wrap gap-3 justify-center">
           <Link
+            href="/dashboard"
+            className="px-4 py-2 text-sm text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors font-medium"
+          >
+            📊 لوحة التحكم
+          </Link>
+          <Link
             href="/workshop"
             className="px-4 py-2 text-sm text-foreground-secondary hover:text-foreground hover:bg-background-secondary rounded-lg transition-colors"
           >

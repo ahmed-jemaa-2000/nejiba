@@ -902,9 +902,9 @@ export const PremiumWorkshopPDF: React.FC<PremiumWorkshopPDFProps> = ({ plan }) 
                     {plan.introduction && (
                         <View style={styles.introBox}>
                             <Text style={styles.introTitle}>مقدمة الورشة للأطفال</Text>
-                            <Text style={styles.introPhrase}>1. {plan.introduction.phrase1}</Text>
-                            <Text style={styles.introPhrase}>2. {plan.introduction.phrase2}</Text>
-                            <Text style={styles.introPhrase}>3. {plan.introduction.phrase3}</Text>
+                            <Text style={styles.introPhrase}>{plan.introduction.phrase1} .1</Text>
+                            <Text style={styles.introPhrase}>{plan.introduction.phrase2} .2</Text>
+                            <Text style={styles.introPhrase}>{plan.introduction.phrase3} .3</Text>
                         </View>
                     )}
 
@@ -998,7 +998,7 @@ export const PremiumWorkshopPDF: React.FC<PremiumWorkshopPDFProps> = ({ plan }) 
                             {/* Activity header */}
                             <View style={[styles.activityHeader, { backgroundColor: energyTheme.bg }]}>
                                 <Text style={styles.activityTitle}>
-                                    {index + 1}. {activity.title}
+                                    {activity.title} .{index + 1}
                                 </Text>
                                 <View style={[styles.activityBadge, { backgroundColor: energyTheme.border }]}>
                                     <Text style={[styles.activityBadgeText, { color: colors.white }]}>

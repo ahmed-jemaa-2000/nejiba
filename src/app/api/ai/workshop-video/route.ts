@@ -56,7 +56,7 @@ async function enhanceVideoScript(script: VideoScriptOutput): Promise<VideoScrip
                 {
                     role: "user",
                     content: `Workshop: "${script.workshopTitle}"
-Character: ${script.character.nameAr} (${script.character.nameEn})
+Character: ${script.characterName}
 Location: ${script.location}
 
 Please enhance these ${script.scenes.length} scenes:
