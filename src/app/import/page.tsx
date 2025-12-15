@@ -539,17 +539,41 @@ DO NOT include: realistic photographs, scary elements, dark themes`;
                                     />
                                 </div>
 
-                                {/* Generate Button */}
-                                <Button
-                                    variant="gradient"
-                                    onClick={generatePosterPrompt}
-                                    loading={isGeneratingPrompt}
-                                    fullWidth
-                                    size="lg"
-                                >
-                                    <span className="text-xl ml-2">🎨</span>
-                                    إنشاء برومبت للملصق (Nanobanana)
-                                </Button>
+                                {/* Generate Buttons - Both visible */}
+                                <div className="grid md:grid-cols-2 gap-3">
+                                    {/* Option 1: Generate Prompt for Nanobanana */}
+                                    <Button
+                                        variant="secondary"
+                                        onClick={generatePosterPrompt}
+                                        loading={isGeneratingPrompt}
+                                        fullWidth
+                                        size="lg"
+                                    >
+                                        <span className="text-xl ml-2">📋</span>
+                                        إنشاء برومبت (للنسخ)
+                                    </Button>
+
+                                    {/* Option 2: Generate 3 Images Directly */}
+                                    <Button
+                                        variant="gradient"
+                                        onClick={async () => {
+                                            // Generate prompt first if not exists
+                                            if (!generatedPosterPrompt) {
+                                                generatePosterPrompt();
+                                                // Wait a bit for prompt to be set
+                                                await new Promise(r => setTimeout(r, 600));
+                                            }
+                                            generatePosterImages();
+                                        }}
+                                        loading={isGeneratingPosterImages}
+                                        fullWidth
+                                        size="lg"
+                                        className="bg-gradient-to-r from-purple-600 to-violet-700"
+                                    >
+                                        <span className="text-xl ml-2">✨</span>
+                                        توليد 3 صور بالذكاء الاصطناعي
+                                    </Button>
+                                </div>
 
                                 {/* Generated Prompt Display */}
                                 {generatedPosterPrompt && (
