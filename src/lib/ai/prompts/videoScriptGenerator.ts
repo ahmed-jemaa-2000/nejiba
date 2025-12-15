@@ -60,12 +60,39 @@ const PRESENTER = {
     greeting: "السلام عليكم أنا نور",
 };
 
-const CHARACTER_DESCRIPTION = `Character (consistent across all scenes) Noor (نور) - Pixar/Disney 3D animated style:
+// SORA SAFE: Removed Pixar/Disney references to avoid third-party content guardrails
+const CHARACTER_DESCRIPTION = `[CONTENT SAFETY: Family-friendly educational content for children's cultural workshops]
+
+Character (consistent across all scenes) Noor (نور) - Stylized 3D animated character:
 - Age: 8-10 year old Middle Eastern girl, age-appropriate proportions
 - Face: warm brown eyes, broad expressive eyebrows, friendly smile, subtle dimples
 - Hair: glossy black hair in a neat high ponytail tied with a colorful ribbon (purple + teal threads visible)
 - Outfit: colorful casual clothes in a purple/pink palette — textured knit sweater over a patterned dress, comfortable sneakers; visible fabric weave and soft cloth shading
-- Personality: animated, welcoming, energetic, very expressive micro-expressions`;
+- Personality: animated, welcoming, energetic, very expressive micro-expressions
+- Context: Original character for educational workshop videos`;
+
+// ============================================================================
+// ARABIC DIALOGUE BLOCK FOR LIP-SYNC
+// ============================================================================
+
+/**
+ * Creates the Arabic dialogue block that instructs Sora 2 to generate
+ * lip movements matching the exact Arabic text. This allows the user to
+ * replace the AI audio with their professional voiceover while lips still sync.
+ */
+function buildDialogueBlock(arabicScript: string): string {
+    return `
+🎤 ARABIC DIALOGUE - CHARACTER SPEAKS THIS EXACT TEXT:
+"${arabicScript}"
+
+⚠️ CRITICAL LIP-SYNC INSTRUCTIONS:
+- Generate mouth movements that PERFECTLY SYNC with this Arabic text
+- Character MUST clearly mouth every word in natural Arabic speech rhythm  
+- Lip shapes must match Arabic phonemes (ع، خ، ح، ش، ق، etc.)
+- Speaking pace: Natural, warm, child-friendly (not rushed)
+- Expression: Animated and engaging while speaking
+`;
+}
 
 // ============================================================================
 // SCENE GENERATORS
@@ -81,7 +108,7 @@ function generateWelcomeScene(workshopData: WorkshopExtract, hasRef: boolean): V
         titleAr: "الترحيب",
         description: "Noor greets viewers and introduces herself",
         imagePrompt: `${refNote}
-Pixar 3D animated scene - WELCOME SHOT:
+High-quality 3D animated scene - WELCOME SHOT:
 
 ${CHARACTER_DESCRIPTION}
 
@@ -100,16 +127,17 @@ WORKSHOP: "${workshopData.titleAr}"`,
         videoPrompt: `Sora 2 - 15 SECOND ANIMATED SCENE:
 
 ${CHARACTER_DESCRIPTION}
+${buildDialogueBlock(`${PRESENTER.greeting} مرحباً بكم في ${PRESENTER.location}! اليوم عندنا ورشة رائعة... تعالوا نكتشفها معاً!`)}
 
 SCENE: WELCOME
-[0:00-0:05] Noor walks into frame from right, waving at camera
-[0:05-0:10] She stops center, hands together, big welcoming smile
-[0:10-0:15] She opens arms wide in welcoming gesture, slight head tilt
+[0:00-0:05] Noor walks into frame from right, waving at camera, STARTS SPEAKING the dialogue
+[0:05-0:10] She stops center, hands together, CONTINUES SPEAKING with big welcoming smile
+[0:10-0:15] She opens arms wide in welcoming gesture, FINISHES the dialogue with slight head tilt
 
 SETTING: Entrance of cultural center, warm morning light
 CAMERA: Starts wide, gentle push-in to medium shot
 MOOD: Warm, inviting, energetic
-STYLE: Pixar 3D, smooth animation, expressive character`,
+STYLE: High-quality 3D animation, smooth animation, expressive character, clear lip movements`,
         arabicScript: `${PRESENTER.greeting} مرحباً بكم في ${PRESENTER.location}! اليوم عندنا ورشة رائعة... تعالوا نكتشفها معاً!`,
         duration: 15
     };
@@ -125,7 +153,7 @@ function generateThemeScene(workshopData: WorkshopExtract, hasRef: boolean): Vid
         titleAr: "موضوع الورشة",
         description: "Noor reveals the workshop theme",
         imagePrompt: `${refNote}
-Pixar 3D animated scene - THEME REVEAL:
+High-quality 3D animated scene - THEME REVEAL:
 
 ${CHARACTER_DESCRIPTION}
 
@@ -145,16 +173,17 @@ WORKSHOP: "${workshopData.titleAr}"`,
         videoPrompt: `Sora 2 - 15 SECOND ANIMATED SCENE:
 
 ${CHARACTER_DESCRIPTION}
+${buildDialogueBlock(`ورشتنا اليوم هي: "${workshopData.titleAr}"! ورشة ممتعة جداً للأطفال من ${workshopData.ageGroup}`)}
 
 SCENE: THEME REVEAL
-[0:00-0:05] Noor gestures dramatically, title text animates in with sparkle effects
-[0:05-0:10] Camera orbits slightly as Noor presents the theme with excitement
-[0:10-0:15] Noor claps hands together, workshop materials float into view around the title
+[0:00-0:05] Noor gestures dramatically toward title, SPEAKING excitedly, title text animates in
+[0:05-0:10] Camera orbits slightly as Noor ANNOUNCES the theme with clear lip movements
+[0:10-0:15] Noor claps hands together, FINISHES speaking as materials float into view
 
 SETTING: Beautiful workshop room in cultural center
 CAMERA: Dynamic movement, slight orbit around Noor and title
 MOOD: Magical reveal, excitement building
-STYLE: Pixar 3D, particle effects on title`,
+STYLE: High-quality 3D animation, particle effects on title, clear speaking animation`,
         arabicScript: `ورشتنا اليوم هي: "${workshopData.titleAr}"! ورشة ممتعة جداً للأطفال من ${workshopData.ageGroup}`,
         duration: 15
     };
@@ -177,7 +206,7 @@ function generateActivityScene(
         titleAr: activity.title,
         description: `Noor presents activity: ${activity.title}`,
         imagePrompt: `${refNote}
-Pixar 3D animated scene - ACTIVITY ${activityNumber}/${totalActivities}:
+High-quality 3D animated scene - ACTIVITY ${activityNumber}/${totalActivities}:
 
 ${CHARACTER_DESCRIPTION}
 
@@ -200,16 +229,17 @@ WORKSHOP: "${workshopData.titleAr}"`,
         videoPrompt: `Sora 2 - 15 SECOND ANIMATED SCENE:
 
 ${CHARACTER_DESCRIPTION}
+${buildDialogueBlock(`والآن ننتقل إلى ${activity.title}! في هذا النشاط سنتعلم ${activity.description || "مهارات جديدة ورائعة"}`)}
 
 SCENE: ACTIVITY ${activityNumber} - "${activity.title}"
-[0:00-0:05] Noor picks up materials, shows them to camera with excitement
-[0:05-0:10] Close-up of hands working on the activity, colorful materials
-[0:10-0:15] Pull back to show Noor's proud smile, finished/in-progress work visible
+[0:00-0:05] Noor picks up materials, SPEAKING while showing them to camera excitedly
+[0:05-0:10] Close-up of hands working on activity while Noor CONTINUES SPEAKING (voiceover)
+[0:10-0:15] Pull back to Noor's proud smile, FINISHES speaking, work visible
 
 MATERIALS: ${activity.materials.join(", ") || "craft supplies"}
 CAMERA: Dynamic, close-ups of hands and materials, then pull back
 MOOD: Creative, fun, accomplishment
-STYLE: Pixar 3D, focus on textures and colors`,
+STYLE: High-quality 3D animation, focus on textures and colors, clear lip sync when face visible`,
         arabicScript: `والآن ننتقل إلى ${activity.title}! في هذا النشاط سنتعلم ${activity.description || "مهارات جديدة ورائعة"}`,
         duration: 15
     };
@@ -226,7 +256,7 @@ function generateLearningScene(workshopData: WorkshopExtract, hasRef: boolean): 
         titleAr: "ماذا سنتعلم",
         description: "Noor presents what kids will learn",
         imagePrompt: `${refNote}
-Pixar 3D animated scene - LEARNING OUTCOMES:
+High-quality 3D animated scene - LEARNING OUTCOMES:
 
 ${CHARACTER_DESCRIPTION}
 
@@ -247,18 +277,19 @@ WORKSHOP: "${workshopData.titleAr}"`,
         videoPrompt: `Sora 2 - 15 SECOND ANIMATED SCENE:
 
 ${CHARACTER_DESCRIPTION}
+${buildDialogueBlock(`في هذه الورشة سنتعلم أشياء رائعة! ${objectives.map((obj, i) => `${i + 1}. ${obj}`).join("، ")}`)}
 
 SCENE: LEARNING OUTCOMES
-[0:00-0:05] Noor counts on fingers as text points animate in one by one
-[0:05-0:10] Icons representing each skill orbit around Noor
-[0:10-0:15] Noor nods confidently, gives thumbs up to camera
+[0:00-0:05] Noor counts on fingers WHILE SPEAKING, text points animate in one by one
+[0:05-0:10] Noor CONTINUES listing objectives as icons orbit around her
+[0:10-0:15] Noor nods confidently, FINISHES speaking, gives thumbs up to camera
 
 LEARNING POINTS:
 ${objectives.map((obj, i) => `${i + 1}. ${obj}`).join("\n")}
 
 CAMERA: Medium shot with floating UI elements
 MOOD: Inspiring, confident, achievable
-STYLE: Pixar 3D, animated infographic elements`,
+STYLE: High-quality 3D animation, animated infographic elements, clear speaking animation`,
         arabicScript: `في هذه الورشة سنتعلم أشياء رائعة! ${objectives.map((obj, i) => `${i + 1}. ${obj}`).join("، ")}`,
         duration: 15
     };
@@ -274,7 +305,7 @@ function generateGoodbyeScene(workshopData: WorkshopExtract, hasRef: boolean): V
         titleAr: "الوداع",
         description: "Noor says goodbye and invites viewers",
         imagePrompt: `${refNote}
-Pixar 3D animated scene - CLOSING:
+High-quality 3D animated scene - CLOSING:
 
 ${CHARACTER_DESCRIPTION}
 
@@ -295,16 +326,17 @@ WORKSHOP: "${workshopData.titleAr}"`,
         videoPrompt: `Sora 2 - 15 SECOND ANIMATED SCENE:
 
 ${CHARACTER_DESCRIPTION}
+${buildDialogueBlock(`شكراً لمشاركتكم معنا! كانت ورشة رائعة. نراكم قريباً في ${PRESENTER.location}! مع السلامة!`)}
 
 SCENE: GOODBYE
-[0:00-0:05] Noor holds up a finished creation from the workshop, proud smile
-[0:05-0:10] She waves goodbye with enthusiasm, slight jump
-[0:10-0:15] Camera pulls back as sparkles and confetti appear, Noor waving
+[0:00-0:05] Noor holds up creation, SPEAKING thanks with proud smile
+[0:05-0:10] She waves goodbye WHILE SPEAKING with enthusiasm, slight jump
+[0:10-0:15] Camera pulls back, sparkles appear, Noor FINISHES speaking and waves
 
 TEXT: Space for "نراكم قريباً في ${PRESENTER.location}!"
 CAMERA: Start medium, pull back to wide, uplifting movement
 MOOD: Celebratory, grateful, exciting
-STYLE: Pixar 3D, particle effects, warm lighting`,
+STYLE: High-quality 3D animation, particle effects, warm lighting, clear farewell lip sync`,
         arabicScript: `شكراً لمشاركتكم معنا! كانت ورشة رائعة. نراكم قريباً في ${PRESENTER.location}! مع السلامة!`,
         duration: 15
     };
@@ -412,7 +444,7 @@ export function generateVideoScript(
                 title: `Activity ${index + 1}`,
                 titleAr: activity.title,
                 description: activity.description,
-                imagePrompt: `Pixar 3D style craft scene: ${activity.title}
+                imagePrompt: `High-quality 3D style craft scene: ${activity.title}
 Materials: ${activity.materials.join(", ")}
 Close-up of hands working on creative activity
 Bright colorful lighting, workshop setting`,
@@ -456,7 +488,7 @@ Your task is to enhance scene prompts for:
 CRITICAL RULES:
 - Maintain CONSISTENT character appearance across ALL scenes
 - If reference image is mentioned, add "[USE REFERENCE IMAGE]" at the start
-- Keep the warm, welcoming, Pixar 3D style throughout
+- Keep the warm, welcoming, High-quality 3D style throughout
 - Arabic text should be beautifully integrated, not overlaid
 - Each scene is exactly 15 seconds
 

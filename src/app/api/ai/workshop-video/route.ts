@@ -4,9 +4,11 @@ import {
     generateWorkshopVideo,
     workshopPlanToVideoInput,
     CHARACTERS,
+    PLATFORM_CONFIGS,
     type WorkshopVideoInput,
     type VideoScriptOutput,
-    type VideoScene
+    type VideoScene,
+    type VideoPlatform
 } from "@/lib/ai/prompts/amalVideoGenerator";
 import type { WorkshopPlanData } from "@/lib/ai/providers/base";
 
@@ -18,6 +20,7 @@ interface VideoGeneratorRequest {
     workshop?: WorkshopPlanData;
     workshopInput?: WorkshopVideoInput;
     characterId?: string;
+    platform?: VideoPlatform;
     hasReferenceImage?: boolean;
     enhance?: boolean;
 }
@@ -125,6 +128,7 @@ export async function POST(request: NextRequest) {
 
         // Generate base video script
         let videoScript = generateWorkshopVideo(workshopInput, {
+            platform: body.platform || 'sora2',
             characterId: body.characterId || 'amal',
             hasReferenceImage: body.hasReferenceImage ?? true,
         });
@@ -159,7 +163,9 @@ export async function GET() {
             age: c.age,
             description: c.description,
         })),
+        platforms: Object.values(PLATFORM_CONFIGS),
         defaultCharacter: 'amal',
+        defaultPlatform: 'sora2',
     });
 }
 

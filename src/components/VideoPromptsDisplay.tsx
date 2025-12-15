@@ -76,7 +76,7 @@ export default function VideoPromptsDisplay({ videoContent }: { videoContent: Da
 
                     return (
                         <div key={segment.segmentNumber}
-                             className="bg-white rounded-lg p-4 border-r-4 border-purple-500 shadow-sm hover:shadow-md transition-shadow">
+                            className="bg-white rounded-lg p-4 border-r-4 border-purple-500 shadow-sm hover:shadow-md transition-shadow">
 
                             {/* Header */}
                             <div className="flex justify-between items-center mb-3">
@@ -127,11 +127,31 @@ export default function VideoPromptsDisplay({ videoContent }: { videoContent: Da
                                 </button>
                             </div>
 
-                            {/* Voiceover */}
-                            <div className="mt-3 pt-3 border-t border-gray-200">
-                                <span className="text-xs text-gray-500">🎙️ التعليق الصوتي:</span>
-                                <p className="text-sm text-gray-700 mt-1" dir="rtl">
-                                    {segment.voiceoverText}
+                            {/* Voiceover Script - PROMINENT for lip-sync matching */}
+                            <div className="mt-3 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border-2 border-amber-300">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-lg">🎤</span>
+                                        <span className="font-bold text-amber-800">النص الصوتي (لمطابقة حركة الشفاه)</span>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(segment.voiceoverText);
+                                            setCopyFeedback(segment.segmentNumber + 1000); // Different ID for voiceover copy
+                                            setTimeout(() => setCopyFeedback(null), 2000);
+                                        }}
+                                        className="text-xs bg-amber-500 text-white px-3 py-1.5 rounded-full hover:bg-amber-600 transition-colors font-medium"
+                                    >
+                                        {copyFeedback === segment.segmentNumber + 1000 ? '✅ تم النسخ' : '📋 نسخ النص'}
+                                    </button>
+                                </div>
+                                <div className="bg-white/70 rounded-lg p-3 border border-amber-200">
+                                    <p className="text-base text-gray-800 font-medium leading-relaxed" dir="rtl">
+                                        &quot;{segment.voiceoverText}&quot;
+                                    </p>
+                                </div>
+                                <p className="text-xs text-amber-700 mt-2" dir="rtl">
+                                    💡 انسخ هذا النص إلى Sora 2 ليتطابق مع صوتك المحترف
                                 </p>
                             </div>
                         </div>

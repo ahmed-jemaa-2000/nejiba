@@ -136,7 +136,7 @@ export interface SoraPromptOutput {
 export const CHARACTER_NOOR: SoraCharacter = {
     name: "Noor",
     nameAr: "نور",
-    description: "8-year-old Tunisian girl, Pixar-style 3D animated character",
+    description: "8-year-old Tunisian girl, stylized 3D animated character",
     appearance: {
         age: "8 years old",
         ethnicity: "Middle Eastern / North African (Tunisian)",
@@ -164,7 +164,7 @@ export const ENVIRONMENT_WORKSHOP: SoraEnvironment = {
         "decorated walls with children's artwork"
     ],
     atmosphere: ["warm", "inviting", "child-friendly", "creative", "inspiring"],
-    style: "Pixar/Disney 3D animation, cinema quality"
+    style: "High-quality 3D animation, cinema quality"
 };
 
 // ============================================================================
@@ -256,6 +256,8 @@ export interface BuilderOptions {
     materials: string[];
     workshopTitle: string;
     workshopTitleAr: string;
+    /** Arabic dialogue that character should speak - for lip-sync matching */
+    arabicDialogue?: string;
 }
 
 export class SoraPromptBuilder {
@@ -329,7 +331,7 @@ export class SoraPromptBuilder {
                 },
 
                 technical: {
-                    style: "Pixar 3D animation, cinema quality",
+                    style: "High-quality 3D animation, cinema quality",
                     resolution: "4K (3840x2160)",
                     frameRate: 24,
                     colorGrading: "warm, saturated, vibrant",
@@ -374,6 +376,21 @@ ${char.name} (${char.nameAr}) - CONSISTENT across ALL scenes:
 `;
         } else {
             prompt += `===== FOCUS: MATERIALS & ACTIVITY (No Character) =====
+
+`;
+        }
+
+        // Arabic Dialogue block for lip-sync
+        if (options.arabicDialogue) {
+            prompt += `===== 🎤 ARABIC DIALOGUE (CHARACTER SPEAKS THIS EXACT TEXT) =====
+"${options.arabicDialogue}"
+
+⚠️ CRITICAL LIP-SYNC INSTRUCTIONS:
+- Generate mouth movements that PERFECTLY SYNC with this Arabic text
+- Character MUST clearly mouth every word in natural Arabic speech rhythm
+- Lip shapes must match Arabic phonemes (ع، خ، ح، ش، ق، etc.)
+- Speaking pace: Natural, warm, child-friendly (not rushed)
+- Expression: Animated and engaging while speaking
 
 `;
         }
@@ -466,7 +483,7 @@ Add sparkle/confetti effects around text
             `[${b.start}-${b.end}s] ${b.action}`
         ).join(". ");
 
-        return `Cinematic Pixar 3D animated scene, 15 seconds, ${seg.technical.frameRate}fps:
+        return `Cinematic high-quality 3D animated scene, 15 seconds, ${seg.technical.frameRate}fps:
 
 Scene ${seg.id}/${options.totalScenes} - ${seg.titleAr}
 

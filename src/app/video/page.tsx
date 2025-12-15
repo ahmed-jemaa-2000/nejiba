@@ -3,7 +3,9 @@
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { Button, Card, useToast } from "@/components/ui";
-import type { VideoScriptOutput, VideoScene } from "@/lib/ai/prompts/amalVideoGenerator";
+import VideoPlatformSelector from "@/components/VideoPlatformSelector";
+import type { VideoScriptOutput, VideoScene, VideoPlatform } from "@/lib/ai/prompts/amalVideoGenerator";
+import { PLATFORM_CONFIGS } from "@/lib/ai/prompts/amalVideoGenerator";
 import type { WorkshopPlanData } from "@/lib/ai/providers/base";
 
 // Video generation status per scene
@@ -17,11 +19,14 @@ interface SceneVideoStatus {
 
 export default function VideoPage() {
     const [workshopTitle, setWorkshopTitle] = useState("");
-    const [ageGroup, setAgeGroup] = useState("10-15 سنة"); // Fixed default for kids program
+    const [ageGroup, setAgeGroup] = useState("10-15 سنة");
     const [duration, setDuration] = useState("90 دقيقة");
     const [activities, setActivities] = useState("");
     const [hasReferenceImage, setHasReferenceImage] = useState(true);
     const [referenceImage, setReferenceImage] = useState<string | null>(null);
+
+    // Platform selection: sora2 or veo31fast
+    const [selectedPlatform, setSelectedPlatform] = useState<VideoPlatform>('sora2');
 
     // Per-scene reference image URLs (uploaded from Nanobanana)
     const [sceneReferenceUrls, setSceneReferenceUrls] = useState<Record<number, string>>({});
@@ -154,6 +159,7 @@ export default function VideoPage() {
                         duration,
                         activities: activityList,
                     },
+                    platform: selectedPlatform,
                     characterId: "amal",
                     hasReferenceImage,
                     enhance: enhanceWithAI,
@@ -174,13 +180,13 @@ export default function VideoPage() {
         } finally {
             setIsGenerating(false);
         }
-    }, [workshopTitle, ageGroup, duration, activities, hasReferenceImage, enhanceWithAI, importedWorkshop, showToast]);
+    }, [workshopTitle, ageGroup, duration, activities, hasReferenceImage, enhanceWithAI, importedWorkshop, selectedPlatform, showToast]);
 
     const copyPrompt = useCallback((scene: VideoScene, type: 'veo' | 'arabic') => {
         const text = type === 'veo' ? scene.veoPrompt : scene.arabicScript;
         navigator.clipboard.writeText(text);
         setCopiedScene(scene.sceneNumber);
-        showToast(`تم نسخ ${type === 'veo' ? 'Veo 2 Prompt' : 'النص العربي'} ✓`, "success");
+        showToast(`تم نسخ ${type === 'veo' ? 'Video Prompt' : 'النص العربي'} ✓`, "success");
         setTimeout(() => setCopiedScene(null), 2000);
     }, [showToast]);
 
@@ -197,7 +203,7 @@ export default function VideoPage() {
             allText += `# المشهد ${scene.sceneNumber}: ${scene.titleAr} (${scene.titleEn}) \n`;
             allText += `${"=".repeat(60)} \n\n`;
             allText += `## 🎤 النص العربي: \n"${scene.arabicScript}"\n\n`;
-            allText += `## 🎬 VEO 2 PROMPT: \n${scene.veoPrompt} \n\n`;
+            allText += `## 🎬 VIDEO PROMPT: \n${scene.veoPrompt} \n\n`;
         });
 
         navigator.clipboard.writeText(allText);
@@ -219,7 +225,7 @@ export default function VideoPage() {
             allText += `# المشهد ${scene.sceneNumber}: ${scene.titleAr} (${scene.titleEn})\n`;
             allText += `${"=".repeat(60)}\n\n`;
             allText += `## 🎤 النص العربي (Voiceover):\n"${scene.arabicScript}"\n\n`;
-            allText += `## 🎬 VEO 2 PROMPT:\n${scene.veoPrompt}\n\n`;
+            allText += `## 🎬 VIDEO PROMPT:\n${scene.veoPrompt}\n\n`;
             allText += `## 🖼️ IMAGE PROMPT:\n${scene.imagePrompt}\n\n`;
         });
 
@@ -237,8 +243,11 @@ export default function VideoPage() {
         showToast("تم تنزيل الملف ✓", "success");
     }, [videoScript, showToast]);
 
-    // Generate video for a scene using Sora 2 (uses per-scene reference image)
+    // Generate video for a scene (uses per-scene reference image)
     const generateSceneVideo = useCallback(async (scene: VideoScene) => {
+        // Get platform config for duration and aspect ratio
+        const platformConfig = PLATFORM_CONFIGS[selectedPlatform];
+
         // Set status to generating
         setSceneVideoStatus(prev => ({
             ...prev,
@@ -246,22 +255,35 @@ export default function VideoPage() {
         }));
 
         try {
-            // Use the animation prompt (motion-focused for Sora 2)
+            // Use the animation prompt
             const promptContent = scene.veoPrompt;
 
             // Get per-scene reference image URL (created from Nanobanana)
             const referenceUrl = sceneReferenceUrls[scene.sceneNumber] || "";
 
-            // Call our Sora 2 API with optional reference image
-            const response = await fetch("/api/video/sora", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
+            // Choose API based on platform
+            const apiEndpoint = selectedPlatform === 'sora2'
+                ? "/api/video/sora"
+                : "/api/video/veo";
+
+            // Build request body based on platform
+            const requestBody = selectedPlatform === 'sora2'
+                ? {
                     prompt: promptContent,
                     referenceImageUrl: referenceUrl,
-                    duration: 15,
-                    aspectRatio: "landscape"
-                })
+                    duration: platformConfig.duration, // 15 for Sora
+                    aspectRatio: "portrait" // 9:16
+                }
+                : {
+                    prompt: promptContent,
+                    referenceImageUrl: referenceUrl,
+                    aspectRatio: "16:9" // Testing 16:9 landscape
+                };
+
+            const response = await fetch(apiEndpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(requestBody)
             });
 
             const data = await response.json();
@@ -281,9 +303,9 @@ export default function VideoPage() {
                 }
             }));
 
-            showToast(`بدأ توليد فيديو المشهد ${scene.sceneNumber}... ⏳`, "success");
+            showToast(`بدأ توليد فيديو المشهد ${scene.sceneNumber} (${platformConfig.name})... ⏳`, "success");
 
-            // Start polling
+            // Start polling with correct status endpoint
             pollVideoStatus(scene.sceneNumber, uuid);
 
         } catch (error) {
@@ -297,16 +319,21 @@ export default function VideoPage() {
             }));
             showToast(`فشل توليد الفيديو: ${error instanceof Error ? error.message : "خطأ"}`, "error");
         }
-    }, [showToast, sceneReferenceUrls]);
+    }, [showToast, sceneReferenceUrls, selectedPlatform]);
 
     // Poll for video status (30 second intervals for 3-5 min generation)
     const pollVideoStatus = useCallback(async (sceneNumber: number, uuid: string) => {
         const maxAttempts = 20; // 10 minutes max (30 sec intervals)
         let attempts = 0;
 
+        // Choose status endpoint based on platform
+        const statusEndpoint = selectedPlatform === 'sora2'
+            ? `/api/video/sora/status?uuid=${uuid}`
+            : `/api/video/veo/status?uuid=${uuid}`;
+
         const checkStatus = async () => {
             try {
-                const response = await fetch(`/api/video/sora/status?uuid=${uuid}`);
+                const response = await fetch(statusEndpoint);
                 const data = await response.json();
 
                 if (!response.ok) {
@@ -372,7 +399,7 @@ export default function VideoPage() {
 
         // Start first check after 30 seconds (give API time to start processing)
         setTimeout(checkStatus, 30000);
-    }, [showToast]);
+    }, [showToast, selectedPlatform]);
 
     const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -406,7 +433,7 @@ export default function VideoPage() {
                         مولد فيديو ورشة العمل
                     </h1>
                     <p className="text-foreground-secondary">
-                        أنشئ 4 مشاهد (60 ثانية) لـ Veo 2 مع أمل
+                        أنشئ مشاهد فيديو لورشة العمل مع أمل
                     </p>
                 </div>
 
@@ -442,6 +469,12 @@ export default function VideoPage() {
                         </label>
                     </div>
                 </Card>
+
+                {/* Platform Selector */}
+                <VideoPlatformSelector
+                    selected={selectedPlatform}
+                    onSelect={setSelectedPlatform}
+                />
 
                 {/* JSON Import Section */}
                 <Card variant="bordered" padding="md" className="mb-6 border-dashed border-2">
@@ -591,7 +624,7 @@ export default function VideoPage() {
                                 className="w-5 h-5 accent-purple-500 rounded"
                             />
                             <span className="text-sm text-foreground">
-                                سأستخدم صورة مرجعية لأمل في Veo 2
+                                سأستخدم صورة مرجعية لأمل لتوليد الفيديو
                             </span>
                         </label>
                     </div>
@@ -604,7 +637,9 @@ export default function VideoPage() {
                         loading={isGenerating}
                         className="mt-6"
                     >
-                        ✨ توليد 4 مشاهد لـ Veo 2
+                        ✨ {selectedPlatform === 'veo31fast'
+                            ? 'توليد 6 مشاهد لـ Veo 3.1 Fast'
+                            : 'توليد 4 مشاهد لـ Sora 2'}
                     </Button>
                 </Card>
 
@@ -631,24 +666,31 @@ export default function VideoPage() {
                             </div>
                         </Card>
 
-                        {/* Sora 2 Info - Using reference image */}
-                        <Card variant="bordered" padding="md" className="bg-gradient-to-r from-purple-50 to-violet-50 border-purple-300">
+                        {/* Platform Info - Dynamic based on selection */}
+                        <Card variant="bordered" padding="md" className={`bg-gradient-to-r ${videoScript.platform === 'veo31fast'
+                            ? 'from-green-50 to-emerald-50 border-green-300'
+                            : 'from-purple-50 to-violet-50 border-purple-300'
+                            }`}>
                             <div className="flex items-center justify-between flex-wrap gap-4">
                                 <div className="flex items-center gap-3">
                                     <span className="text-3xl">🎬</span>
                                     <div>
-                                        <h3 className="text-lg font-bold text-purple-800">Sora 2 Video Generation</h3>
-                                        <p className="text-sm text-purple-600">
-                                            15 ثانية لكل مشهد • 4 مشاهد = 60 ثانية إجمالي
+                                        <h3 className={`text-lg font-bold ${videoScript.platform === 'veo31fast' ? 'text-green-800' : 'text-purple-800'
+                                            }`}>
+                                            {videoScript.platformConfig.name} Video Generation
+                                        </h3>
+                                        <p className={`text-sm ${videoScript.platform === 'veo31fast' ? 'text-green-600' : 'text-purple-600'
+                                            }`}>
+                                            {videoScript.platformConfig.duration} ثانية لكل مشهد • {videoScript.platformConfig.sceneCount} مشاهد = {videoScript.platformConfig.duration * videoScript.platformConfig.sceneCount} ثانية إجمالي
                                         </p>
-                                        <p className="text-xs text-purple-500 mt-1">
-                                            ⏱️ وقت التوليد: 3-5 دقائق لكل مشهد
+                                        <p className={`text-xs mt-1 ${videoScript.platform === 'veo31fast' ? 'text-green-500' : 'text-purple-500'
+                                            }`}>
+                                            📐 {videoScript.platformConfig.aspectRatio} • {videoScript.platformConfig.resolution}
                                         </p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => {
-                                        // Generate all 4 scenes in parallel
                                         videoScript?.scenes.forEach(scene => {
                                             if (!sceneVideoStatus[scene.sceneNumber] ||
                                                 sceneVideoStatus[scene.sceneNumber].status === 'idle' ||
@@ -658,9 +700,12 @@ export default function VideoPage() {
                                         });
                                         showToast("بدأ توليد جميع المشاهد بالتوازي... ⏳", "success");
                                     }}
-                                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-700 text-white font-bold rounded-xl hover:from-purple-700 hover:to-violet-800 transition-all shadow-lg hover:shadow-xl"
+                                    className={`px-6 py-3 bg-gradient-to-r ${videoScript.platform === 'veo31fast'
+                                        ? 'from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800'
+                                        : 'from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800'
+                                        } text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl`}
                                 >
-                                    🚀 توليد الكل (4 مشاهد)
+                                    🚀 توليد الكل ({videoScript.platformConfig.sceneCount} مشاهد)
                                 </button>
                             </div>
                         </Card>
@@ -670,6 +715,8 @@ export default function VideoPage() {
                             <SceneCard
                                 key={scene.sceneNumber}
                                 scene={scene}
+                                platform={videoScript.platform}
+                                platformConfig={videoScript.platformConfig}
                                 isCopied={copiedScene === scene.sceneNumber}
                                 onCopyVeo={() => copyPrompt(scene, 'veo')}
                                 onCopyArabic={() => copyPrompt(scene, 'arabic')}
@@ -726,6 +773,8 @@ export default function VideoPage() {
 // Scene Card Component
 function SceneCard({
     scene,
+    platform,
+    platformConfig,
     isCopied,
     onCopyVeo,
     onCopyArabic,
@@ -736,6 +785,8 @@ function SceneCard({
     onReferenceUrlChange,
 }: {
     scene: VideoScene;
+    platform: VideoPlatform;
+    platformConfig: { name: string; duration: number; resolution: string; aspectRatio: string };
     isCopied: boolean;
     onCopyVeo: () => void;
     onCopyArabic: () => void;
@@ -929,7 +980,7 @@ function SceneCard({
                 </div>
             )}
 
-            {/* 3. Veo 2 Video Prompt */}
+            {/* 3. Video Prompt */}
             <div>
                 <button
                     onClick={() => setShowVeoPrompt(!showVeoPrompt)}
@@ -937,7 +988,7 @@ function SceneCard({
                 >
                     <span className="font-bold text-gray-900 flex items-center gap-2">
                         <span className="text-xl">🎬</span>
-                        Veo 2 / Sora Video Prompt
+                        Video Prompt ({platformConfig.name})
                     </span>
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -975,15 +1026,22 @@ function SceneCard({
                     </div>
                 )}
 
-                {/* 🆕 Generate Video Button with Sora 2 */}
+                {/* 🆕 Generate Video Button - Dynamic Platform */}
                 {onGenerateVideo && (
-                    <div className="mt-4 p-4 bg-gradient-to-r from-violet-100 to-purple-100 rounded-xl border-2 border-purple-300">
+                    <div className={`mt-4 p-4 bg-gradient-to-r rounded-xl border-2 ${platform === 'veo31fast'
+                        ? 'from-green-100 to-emerald-100 border-green-300'
+                        : 'from-violet-100 to-purple-100 border-purple-300'
+                        }`}>
                         <div className="flex items-center justify-between flex-wrap gap-3">
                             <div className="flex items-center gap-3">
                                 <span className="text-2xl">🎬</span>
                                 <div>
-                                    <p className="font-bold text-purple-800">Sora 2 Video</p>
-                                    <p className="text-xs text-purple-600">15 ثانية • 720p</p>
+                                    <p className={`font-bold ${platform === 'veo31fast' ? 'text-green-800' : 'text-purple-800'}`}>
+                                        {platformConfig.name} Video
+                                    </p>
+                                    <p className={`text-xs ${platform === 'veo31fast' ? 'text-green-600' : 'text-purple-600'}`}>
+                                        {platformConfig.duration} ثانية • {platformConfig.resolution}
+                                    </p>
                                 </div>
                             </div>
 
@@ -991,9 +1049,12 @@ function SceneCard({
                             {!videoStatus || videoStatus.status === "idle" ? (
                                 <button
                                     onClick={onGenerateVideo}
-                                    className="px-6 py-3 rounded-xl font-bold transition-all bg-gradient-to-r from-purple-500 to-violet-600 text-white hover:from-purple-600 hover:to-violet-700 shadow-lg hover:shadow-xl"
+                                    className={`px-6 py-3 rounded-xl font-bold transition-all shadow-lg hover:shadow-xl bg-gradient-to-r text-white ${platform === 'veo31fast'
+                                        ? 'from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
+                                        : 'from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700'
+                                        }`}
                                 >
-                                    🚀 توليد فيديو Sora 2
+                                    🚀 توليد فيديو {platformConfig.name}
                                 </button>
                             ) : videoStatus.status === "generating" ? (
                                 <div className="flex items-center gap-3">
