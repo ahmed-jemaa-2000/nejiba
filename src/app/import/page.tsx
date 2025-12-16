@@ -88,40 +88,47 @@ export default function ImportPage() {
         const aspectRatio = posterFormat === "facebook" ? "16:9 horizontal" : "9:16 vertical (portrait)";
         const resolution = posterFormat === "facebook" ? "1200x675" : "1080x1920";
 
-        // Build the Nanobanana prompt
-        const prompt = `Children's creative workshop promotional poster design.
+        // Build clear, explicit prompt with strict DO/DON'T instructions
+        const prompt = `POSTER DESIGN for Arabic Children's Workshop
 
-WORKSHOP DETAILS:
-- Title: "${title}" (${titleEn})
-- Target: Children ${ageGroup}
-- Duration: ${duration}
-${posterDate ? `- Date: ${posterDate}` : ""}
-${posterTime ? `- Time: ${posterTime}` : ""}
-${posterPlace ? `- Location: ${posterPlace}` : ""}
+═══════════════════════════════════════════════
+📌 EXACT TEXT TO INCLUDE (USE EXACTLY AS WRITTEN):
+═══════════════════════════════════════════════
+Title: "${title}"
+${posterDate ? `Date: ${posterDate}` : ""}
+${posterTime ? `Time: ${posterTime}` : ""}
+${posterPlace ? `Location: ${posterPlace}` : ""}
+Age: ${ageGroup}
 
-ACTIVITIES & THEME:
-${activities}
+═══════════════════════════════════════════════
+🎨 VISUAL DESIGN REQUIREMENTS:
+═══════════════════════════════════════════════
+- Style: High-quality 3D animated poster, vibrant and playful
+- Colors: Purple, violet, bright pink, orange, turquoise
+- Theme: ${activities || "creative kids workshop"}
+- Elements: Craft supplies (${materials || "paint, brushes, paper, scissors"})
+- Character: Include a friendly 3D animated girl character (Amal style - purple sweater, black braids)
+- Mood: Exciting, welcoming, fun, educational
+- Layout: ${aspectRatio} professional poster composition
+- Typography: Bold Arabic text, decorative borders, confetti/stars
 
-MATERIALS FEATURED:
-${materials}
+═══════════════════════════════════════════════
+🚫 STRICT RULES - DO NOT VIOLATE:
+═══════════════════════════════════════════════
+❌ DO NOT add any text that is not in the "EXACT TEXT" section above
+❌ DO NOT write random Arabic words or slogans
+❌ DO NOT add phone numbers, emails, or QR codes
+❌ DO NOT include website URLs or social media icons
+❌ DO NOT add any English text unless specified
+❌ DO NOT include realistic photographs of children
+❌ DO NOT add dark, scary, or mature themes
+❌ DO NOT use low-quality or clipart style graphics
 
-VISUAL STYLE:
-- Modern, vibrant, child-friendly poster design
-- Bright cheerful colors (purple, blue, orange, green)
-- Playful 3D or illustrated style
-- Clean readable Arabic typography
-- Fun decorative elements (stars, shapes, confetti)
-- Workshop activity illustrations or icons
-- Welcoming and exciting atmosphere
+✅ ONLY include: The exact Arabic text provided + visual decorations
+✅ Make the title "${title}" the main focal point
+✅ Keep text minimal and readable
 
-TECHNICAL:
-- Format: ${aspectRatio}
-- Resolution: ${resolution}
-- Professional quality, print-ready
-- Bold title text, clear event information
-- Leave space for date/time/location text overlay
-
-DO NOT include: realistic photographs, scary elements, dark themes`;
+OUTPUT: ${resolution} high-resolution, print-ready poster`;
 
         setTimeout(() => {
             setGeneratedPosterPrompt(prompt);
