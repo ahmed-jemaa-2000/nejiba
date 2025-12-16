@@ -1015,7 +1015,7 @@ export async function enhancePosterPrompt(input: {
     Logistic Details (MUST BE INCLUDED IN IMAGE TEXT if available):
     - Date: ${input.date || "(To Be Verified)"}
     - Time: ${input.time || "(To Be Verified)"}
-    - Location: ${input.place || "Dar Takafa Ben Arous"}
+    - Location: ${input.place || "Dar Thakafa Anamodhajia Ben Arous"}
     
     Workshop Highlights:
     ${input.workshopPlan.timeline.slice(0, 3).map(a => `- ${a.title}: ${a.description}`).join('\n')}

@@ -60,7 +60,7 @@ Each scene MUST have: sceneNumber, sceneType, titleAr, titleEn, duration, arabic
 async function enhanceVideoScript(script: VideoScriptOutput): Promise<VideoScriptOutput> {
     try {
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: process.env.OPENAI_MODEL || "gpt-5-mini",
             messages: [
                 { role: "system", content: ENHANCEMENT_PROMPT },
                 {

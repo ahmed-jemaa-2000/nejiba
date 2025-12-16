@@ -638,13 +638,13 @@ ${customInstructions ? `Special instructions: ${customInstructions}` : ""}
 Create a DIFFERENT, creative activity that fits the same time slot and workshop theme!`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5-mini",
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
         temperature: 1,
-        max_tokens: 800,
+        max_completion_tokens: 800,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -698,13 +698,13 @@ Position: Activity ${activityIndex + 1} of ${workshopPlan.timeline.length}
 Make each alternative unique and creative!`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5-mini",
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 0.95,
-        max_tokens: 2000,
+        temperature: 1,
+        max_completion_tokens: 2000,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -765,13 +765,13 @@ Each idea should be:
 - Fun and engaging`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5-mini",
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
         temperature: 1,
-        max_tokens: 2000,
+        max_completion_tokens: 2000,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -838,12 +838,6 @@ export async function enhancePosterPrompt(input: {
     Logistic Details (MUST BE INCLUDED IN IMAGE TEXT if available):
     - Date: ${input.date || "(To Be Verified)"}
     - Time: ${input.time || "(To Be Verified)"}
-    - Location: ${input.place || "Dar Takafa Ben Arous"}
-    
-    Key Activities:
-    ${input.workshopPlan.timeline.map(a => `- ${a.titleEn}: ${a.description}`).join("\n")}
-    
-    Materials involved:
     ${input.workshopPlan.materials.join(", ")}
     
     Create a specific, unique visual scene. Ensure the prompt explicitly asks for the Arabic title "${input.workshopPlan.title.ar}".
@@ -852,7 +846,7 @@ export async function enhancePosterPrompt(input: {
     Style: High-end 3D Pixar Style, set in a bright Tunisian cultural club.`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5-mini",
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -998,13 +992,13 @@ For "الإبداع":
 Generate the 6 posts now:`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5-mini",
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
         temperature: 1, // Higher for more creative, surprising facts
-        max_tokens: 6000, // More tokens for richer content
+        max_completion_tokens: 6000, // More tokens for richer content
     });
 
     const content = completion.choices[0]?.message?.content;

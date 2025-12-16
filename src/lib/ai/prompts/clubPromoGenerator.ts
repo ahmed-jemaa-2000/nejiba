@@ -138,14 +138,23 @@ STYLE: Premium Pixar-quality 3D animation, expressive character acting, cinemati
         generator: (input, name) => ({
             imagePrompt: `Cinematic 3D animated scene, horizontal 16:9, ${AMAL_DESCRIPTION_EN}
 
-SCENE: Character standing proudly with arms wide open, magnificent floating 3D banner showing "الطفل القائد", spectacular confetti and star explosion, vibrant purple and gold colors, professional event lighting
+SCENE: Character standing proudly with arms wide open, magnificent floating 3D banner, spectacular confetti and star explosion, vibrant purple and gold colors, professional event lighting
 
-BANNER TEXT: "الطفل القائد"
-SUBTITLE: "برنامج التعلم الاجتماعي والعاطفي • 36 ورشة • 9 أشهر"
+═══ ARABIC TEXT OVERLAY - CRITICAL RULES ═══
+LANGUAGE: Arabic ONLY (Right-to-Left script)
+DO NOT TRANSLATE TO ENGLISH - Render exact Arabic characters:
 
-═══ قواعد صارمة ═══
-❌ ممنوع إضافة نص غير المحدد
-✅ اجعل اللافتة واضحة وقابلة للقراءة`,
+BANNER TEXT (Large, Center):
+"الطفل القائد"
+(This is the program name - NOT "Leader Kid")
+
+SUBTITLE (Below banner):
+"برنامج التعلم الاجتماعي والعاطفي • 36 ورشة • 9 أشهر"
+
+FONT: Use Arabic calligraphy style
+DO NOT USE: English text, translation, or Latin characters
+✅ Render Arabic script (العربية) exactly as shown
+❌ Never translate Arabic to English`,
 
             animationPrompt: `[نوع المحتوى: شخصية كرتونية متحركة]
 [الصيغة: 16:9، 8 ثواني، فيو 3.1 فاست]
@@ -407,23 +416,29 @@ Warm golden hour lighting, welcoming educational atmosphere
         generator: (input, name) => ({
             imagePrompt: `Cinematic 3D animated scene, horizontal 16:9, ${AMAL_DESCRIPTION_EN}
 
-SCENE: Grand finale celebration, character waving enthusiastically with both hands high, biggest joyful smile, spectacular confetti and balloons, beautiful golden sunset backlight, floating banners showing:
-- "الطفل القائد"
-- "36 ورشة عمل"
-- "سجلوا الآن!"
-- 5 CASEL competency icons in a row
+SCENE: Grand finale celebration, character waving enthusiastically with both hands high, biggest joyful smile, spectacular confetti and balloons, beautiful golden sunset backlight, 5 CASEL competency icons in a row
 
-Festive party atmosphere, memorable closing
+═══ ARABIC TEXT OVERLAY - CRITICAL RULES ═══
+LANGUAGE: Arabic ONLY (Right-to-Left script)
+DO NOT TRANSLATE TO ENGLISH - Render exact Arabic characters:
 
-═══ النص المطلوب ═══
+TEXT 1 (Large Banner):
 "سجلوا الآن!"
-"الطفل القائد • 36 ورشة"
-"من إعداد نجيبة صميدة"
+(This means "Register Now!" - NOT English text)
 
-═══ قواعد صارمة ═══
-❌ ممنوع أرقام هواتف أو إيميلات
-✅ احتفالية ومُرحِّبة
-✅ إظهار اسم المعدة في النهاية`,
+TEXT 2 (Program Name):
+"الطفل القائد • 36 ورشة"
+(This is the program name - NOT "Leader Kid")
+
+TEXT 3 (Author Credit):
+"من إعداد نجيبة صميدة"
+(This is the author credit - NOT "By Nejiba Samida")
+
+FONT: Use Arabic calligraphy style, elegant and readable
+DO NOT USE: English text, translation, or Latin characters
+✅ Render Arabic script (العربية) exactly as shown
+❌ Never translate Arabic to English
+❌ ممنوع أرقام هواتف أو إيميلات`,
 
             animationPrompt: `[نوع المحتوى: شخصية كرتونية متحركة]
 [الصيغة: 16:9، 8 ثواني، فيو 3.1 فاست]

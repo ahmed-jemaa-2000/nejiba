@@ -221,7 +221,7 @@ Create a DIFFERENT, creative activity that fits the same time slot and workshop 
                     { role: "user", content: userPrompt },
                 ],
                 temperature: 1,
-                max_tokens: 800,
+                max_completion_tokens: 800,
             });
 
             const content = completion.choices[0]?.message?.content;
@@ -274,8 +274,8 @@ Make each alternative unique and creative!`;
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt },
                 ],
-                temperature: 0.95,
-                max_tokens: 2000,
+                temperature: 1,
+                max_completion_tokens: 2000,
             });
 
             const content = completion.choices[0]?.message?.content;
@@ -324,7 +324,7 @@ Each idea should be:
                     { role: "user", content: userPrompt },
                 ],
                 temperature: 1,
-                max_tokens: 2000,
+                max_completion_tokens: 2000,
             });
 
             const content = completion.choices[0]?.message?.content;
@@ -359,7 +359,7 @@ Each post must include surprising facts, research-backed statistics, and actiona
                     { role: "user", content: userPrompt },
                 ],
                 temperature: 1,
-                max_tokens: 6000,
+                max_completion_tokens: 6000,
             });
 
             const content = completion.choices[0]?.message?.content;
@@ -402,7 +402,7 @@ Title: ${input.workshopPlan.title.ar}
 Logistic Details (MUST BE INCLUDED IN IMAGE TEXT if available):
 - Date: ${input.date || "(To Be Verified)"}
 - Time: ${input.time || "(To Be Verified)"}
-- Location: ${input.place || "Dar Takafa Ben Arous"}
+- Location: ${input.place || "Dar Thakafa Anamodhajia Ben Arous"}
 
 Key Activities:
 ${input.workshopPlan.timeline.map(a => `- ${a.titleEn}: ${a.description}`).join("\n")}

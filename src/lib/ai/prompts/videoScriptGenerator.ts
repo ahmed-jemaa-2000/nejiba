@@ -3,7 +3,7 @@
  * 
  * Generates dynamic scenes for workshop presentation videos:
  * - Noor (نور) as the main presenter
- * - Location: دار ثقافة بن عروس
+ * - Location: دار ثقافة النموذجية بن عروس
  * - Dynamic number of scenes based on workshop content
  * - 15 seconds per scene
  * 
@@ -56,7 +56,7 @@ export interface ScriptGeneratorOptions {
 const PRESENTER = {
     name: "نور",
     nameEn: "Noor",
-    location: "دار ثقافة بن عروس",
+    location: "دار ثقافة النموذجية بن عروس",
     greeting: "السلام عليكم أنا نور",
 };
 
@@ -497,7 +497,7 @@ CHARACTER: Noor (نور)
 - Expressive, animated, welcoming personality
 - Age-appropriate for presenting to children
 
-LOCATION: دار ثقافة بن عروس (Ben Arous Cultural Center)
+LOCATION: دار ثقافة النموذجية بن عروس (Ben Arous Cultural Center)
 - Traditional Tunisian architecture
 - Warm, inviting atmosphere
 - Child-friendly workshop spaces

@@ -399,7 +399,7 @@ Title: ${input.workshopPlan.title.ar}
 Logistic Details (MUST BE INCLUDED IN IMAGE TEXT if available):
 - Date: ${input.date || "(To Be Verified)"}
 - Time: ${input.time || "(To Be Verified)"}
-- Location: ${input.place || "Dar Takafa Ben Arous"}
+- Location: ${input.place || "Dar Thakafa Anamodhajia Ben Arous"}
 
 Key Activities:
 ${input.workshopPlan.timeline.map(a => `- ${a.titleEn}: ${a.description}`).join("\n")}

@@ -49,7 +49,7 @@ export const PROGRAM_INFO = {
     ageRange: "10-15 سنة",
     workshopDuration: "90 دقيقة",
     framework: "CASEL Framework",
-    location: "دار ثقافة بن عروس",
+    location: "دار ثقافة النموذجية بن عروس",
     frequency: "ورشة واحدة أسبوعياً",
 };
 
@@ -212,7 +212,7 @@ ${previousSkillsSummary}
 | المهارات | ${keySkills.join('، ')} |
 | المدة | 90 دقيقة |
 | الفئة العمرية | 10-15 سنة (مراهقون) |
-| المكان | دار ثقافة بن عروس، تونس |
+| المكان | دار ثقافة النموذجية بن عروس، تونس |
 ${previousContext}
 
 ---
